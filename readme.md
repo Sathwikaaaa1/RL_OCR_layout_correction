@@ -1,4 +1,4 @@
- # RL-Based Post-OCR Document Correction
+# RL-Based Post-OCR Document Correction
 
 Data-layer prototype for correcting document structure from OCR output only. This phase creates deterministic synthetic DocLayNet-style layouts, OCR caches, and alignment labels. The model, Gymnasium environment, and PPO training are intentionally out of scope.
 
@@ -59,4 +59,4 @@ Generated PDFs, images, OCR data, and run outputs are intentionally ignored by G
 
 ## Project status
 
-Phase 0 scaffold: configuration, dependency pins, repository hygiene, and reproducible setup instructions.
+Phase 0 scaffold and the Phase 1/2 data-layer implementation are present. The interrupted 600-page run produced 600 ground-truth pages and 240 OCR/alignment caches before it was stopped. Generated data is ignored by Git and can be resumed with the same `build_dataset.py` command.
