@@ -1,0 +1,31 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated datasets and run artifacts
+data/
+runs/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# Local configuration and secrets
+.env
+*.local.yaml
+
+# Large files
+*.zip
+*.tar
+*.gz
+*.bin
+*.ckpt
+*.pt
+*.onnx
+
+# Keep the sample directory visible in Git even though generated images are ignored.
+!docs/samples/
+!docs/samples/.gitkeep

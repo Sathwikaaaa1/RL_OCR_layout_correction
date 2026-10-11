@@ -1,0 +1,33 @@
+seed: 1337
+num_pages: 600
+dpi: 150
+split_ratios:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+templates:
+  - single_column
+  - two_column
+  - three_column
+  - header_footer
+  - sidebar
+  - heading_body_figure
+  - table
+  - mixed
+ocr:
+  language: eng
+  tesseract_cmd: null
+paths:
+  data_root: data/synthetic
+  images_tmp: data/synthetic/images_tmp
+  pdf: data/synthetic/pdf
+  gt: data/synthetic/gt
+  ocr: data/synthetic/ocr
+  aligned: data/synthetic/aligned
+  splits: data/synthetic/splits.json
+  viz: runs/viz
+degradation:
+  enabled: false
+  blur_sigma: 0.0
+  noise_std: 0.0
+  rotation_degrees: 0.0
