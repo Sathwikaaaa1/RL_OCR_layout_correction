@@ -23,12 +23,30 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
         super().__init__()
         self.page = self._load(page)
         self.lines = self.page["ocr_lines"][:max_lines]
+        self.page["action_targets"] = self.page.get("action_targets") or self._derive_targets()
         self.max_lines = max_lines
         self.feature_dim = 8
         self.observation_space = spaces.Box(0.0, 1.0, shape=(max_lines, self.feature_dim), dtype=np.float32)
         self.action_space = spaces.Discrete(4)
         self.index = 0
         self.actions: list[int] = []
+
+    def _derive_targets(self) -> dict[str, int]:
+        targets = {line["id"]: 0 for line in self.lines}
+        for line_id in self.page.get("split_needed", []):
+            if line_id in targets:
+                targets[line_id] = 2
+        for pair in self.page.get("merge_pairs", []):
+            for line_id in pair:
+                if line_id in targets and targets[line_id] == 0:
+                    targets[line_id] = 1
+        gt_order = self.page.get("gt_order", [])
+        native_order = self.page.get("tesseract_order", [])
+        if gt_order != native_order:
+            for line_id in targets:
+                if targets[line_id] == 0:
+                    targets[line_id] = 3
+        return targets
 
     @staticmethod
     def _load(page: dict[str, Any] | str | Path) -> dict[str, Any]:

@@ -65,10 +65,19 @@ The next-phase API is available as `rlocr.env.OCRCorrectionEnv` and
 `rlocr.model.OCRGATEncoder`. The environment exposes four actions—retain,
 merge, split, and link—and the GAT consumes node features plus an
 `edge_index` tensor. These are intentionally small CPU prototypes; PPO and
-learned reward shaping are not included yet.
+learned reward shaping are available through the self-contained PPO trainer:
+
+```powershell
+python scripts/train_ppo.py --aligned data/synthetic/aligned --max-pages 20 --epochs 4 --output runs/ppo_policy.pt
+```
+
+The trainer derives structural action targets from alignment labels, applies
+clipped PPO with GAE, and uses the GAT encoder for per-line policy/value
+predictions. Rewards are currently shaped against those derived labels; this
+is a training baseline, not a production reward model.
 
 Generated PDFs, images, OCR data, and run outputs are intentionally ignored by Git. The synthetic image directory is removed after OCR unless `--keep-images` is supplied.
 
 ## Project status
 
-Phase 0 scaffold, the Phase 1/2 data layer, and the initial baseline/Gymnasium/GAT phase are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. The baseline currently reports mean order accuracy `0.7066` over 600 pages. Generated data is ignored by Git and can be reproduced with the commands above.
+Phase 0 scaffold, the Phase 1/2 data layer, the baseline/Gymnasium/GAT phase, and the initial PPO phase are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. The baseline reports mean order accuracy `0.7066` over 600 pages. A five-page PPO smoke test completed on CPU and wrote a checkpoint with mean episode reward `-19.600`. Generated data and checkpoints are ignored by Git.
