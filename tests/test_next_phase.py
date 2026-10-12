@@ -42,3 +42,8 @@ def test_behavior_clone_step() -> None:
     from rlocr.ppo import PPOTrainer
     model = GATActorCritic(); trainer = PPOTrainer(model); observations = torch.rand(1, 4, 8); targets = torch.tensor([[0, 1, 2, 3]])
     assert trainer.behavior_clone(observations, targets, ring_edges(4), epochs=1) >= 0
+
+
+def test_link_target_uses_per_line_order_mismatch() -> None:
+    page = {"ocr_lines": [{"id": "a", "bbox": [0, 0, 10, 10], "native_order": 0}, {"id": "b", "bbox": [0, 20, 10, 30], "native_order": 1}], "gt_order": ["b", "a"], "tesseract_order": ["a", "b"]}
+    env = OCRCorrectionEnv(page); assert env.page["action_targets"]["a"] == 3 and env.page["action_targets"]["b"] == 3

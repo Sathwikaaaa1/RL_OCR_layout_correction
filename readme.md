@@ -91,6 +91,11 @@ The masked warm-start experiment reached action accuracy `0.8058` on the
 mostly reflecting the dominant Merge class; macro F1 is the more informative
 metric for future policy improvements.
 
+Link targets are now derived per line from native-vs-ground-truth order, and
+the environment adds a Kendall-tau delta reward after each action. The first
+20-page retraining run remained at corrected tau `0.9953` versus native tau
+`0.9953`, so the policy has not demonstrated an order improvement yet.
+
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
 accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,

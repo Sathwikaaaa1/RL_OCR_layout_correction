@@ -7,6 +7,8 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
+from rlocr.evaluation import corrected_order
+from rlocr.ocr.alignment import kendall_tau
 
 
 class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
@@ -46,8 +48,9 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
         gt_order = self.page.get("gt_order", [])
         native_order = self.page.get("tesseract_order", [])
         if gt_order != native_order:
-            for line_id in targets:
-                if targets[line_id] == 0:
+            gt_position = {line_id: index for index, line_id in enumerate(gt_order)}
+            for index, line_id in enumerate(native_order):
+                if line_id in targets and targets[line_id] == 0 and gt_position.get(line_id, index) != index:
                     targets[line_id] = 3
         return targets
 
@@ -84,6 +87,8 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         line = self.lines[self.index]
         target = self.page.get("action_targets", {}).get(line["id"], 0)
+        before_actions = {item["id"]: value for item, value in zip(self.lines, self.actions)}
+        before_tau = self._order_tau(before_actions)
         action = int(action)
         if action == 1: self.merged.add(line["id"])
         elif action == 2: self.split.add(line["id"])
@@ -93,4 +98,11 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
         if action == 2 and line["id"] in self.merged: reward -= 0.5
         self.actions.append(int(action)); self.index += 1
         terminated = self.index >= len(self.lines)
-        return self._observation(), reward, terminated, False, {"line_id": line["id"], "target_action": target}
+        after_actions = {item["id"]: value for item, value in zip(self.lines, self.actions)}
+        reward += 2.0 * (self._order_tau(after_actions) - before_tau)
+        return self._observation(), reward, terminated, False, {"line_id": line["id"], "target_action": target, "order_tau": self._order_tau(after_actions)}
+
+    def _order_tau(self, actions: dict[str, int]) -> float:
+        if not self.page.get("gt_order"):
+            return 0.0
+        return kendall_tau(corrected_order(self.lines[:len(actions)], actions), self.page["gt_order"])
