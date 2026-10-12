@@ -55,8 +55,20 @@ Run tests:
 python -m pytest -q
 ```
 
+Run the heuristic reading-order baseline:
+
+```powershell
+python scripts/run_baseline.py --aligned data/synthetic/aligned
+```
+
+The next-phase API is available as `rlocr.env.OCRCorrectionEnv` and
+`rlocr.model.OCRGATEncoder`. The environment exposes four actions—retain,
+merge, split, and link—and the GAT consumes node features plus an
+`edge_index` tensor. These are intentionally small CPU prototypes; PPO and
+learned reward shaping are not included yet.
+
 Generated PDFs, images, OCR data, and run outputs are intentionally ignored by Git. The synthetic image directory is removed after OCR unless `--keep-images` is supplied.
 
 ## Project status
 
-Phase 0 scaffold and the Phase 1/2 data-layer implementation are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. Generated data is ignored by Git and can be reproduced with the commands above.
+Phase 0 scaffold, the Phase 1/2 data layer, and the initial baseline/Gymnasium/GAT phase are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. The baseline currently reports mean order accuracy `0.7066` over 600 pages. Generated data is ignored by Git and can be reproduced with the commands above.
