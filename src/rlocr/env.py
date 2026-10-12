@@ -30,6 +30,9 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
         self.action_space = spaces.Discrete(4)
         self.index = 0
         self.actions: list[int] = []
+        self.merged: set[str] = set()
+        self.split: set[str] = set()
+        self.links: list[str] = []
 
     def _derive_targets(self) -> dict[str, int]:
         targets = {line["id"]: 0 for line in self.lines}
@@ -61,13 +64,33 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
             observation[row] = [x0 / 2000, y0 / 2000, x1 / 2000, y1 / 2000, min(len(line["text"]) / 200, 1), line.get("confidence", 0) / 100, line.get("block_num", 0) / 20, line.get("native_order", 0) / max(1, len(self.lines))]
         return np.clip(observation, 0, 1)
 
+    @property
+    def edge_index(self) -> np.ndarray:
+        """Symmetric spatial kNN graph over the padded OCR-line observations."""
+        points = np.zeros((self.max_lines, 2), dtype=np.float32)
+        for row, line in enumerate(self.lines):
+            points[row] = [(line["bbox"][0] + line["bbox"][2]) / 2, (line["bbox"][1] + line["bbox"][3]) / 2]
+        edges: set[tuple[int, int]] = {(i, i) for i in range(self.max_lines)}
+        k = min(4, max(1, len(self.lines) - 1))
+        for i in range(len(self.lines)):
+            distances = np.sum((points - points[i]) ** 2, axis=1); distances[i] = np.inf
+            for j in np.argsort(distances)[:k]:
+                if j < len(self.lines): edges.add((i, int(j))); edges.add((int(j), i))
+        return np.asarray(list(edges), dtype=np.int64).T
+
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[np.ndarray, dict[str, Any]]:
-        super().reset(seed=seed); self.index = 0; self.actions = []; return self._observation(), {"page_id": self.page.get("page_id")}
+        super().reset(seed=seed); self.index = 0; self.actions = []; self.merged = set(); self.split = set(); self.links = []; return self._observation(), {"page_id": self.page.get("page_id")}
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         line = self.lines[self.index]
         target = self.page.get("action_targets", {}).get(line["id"], 0)
-        reward = 1.0 if int(action) == int(target) else -1.0
+        action = int(action)
+        if action == 1: self.merged.add(line["id"])
+        elif action == 2: self.split.add(line["id"])
+        elif action == 3: self.links.append(line["id"])
+        reward = 1.0 if action == int(target) else -1.0
+        if action == 1 and line["id"] in self.split: reward -= 0.5
+        if action == 2 and line["id"] in self.merged: reward -= 0.5
         self.actions.append(int(action)); self.index += 1
         terminated = self.index >= len(self.lines)
         return self._observation(), reward, terminated, False, {"line_id": line["id"], "target_action": target}

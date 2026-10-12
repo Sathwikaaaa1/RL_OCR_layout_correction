@@ -18,6 +18,17 @@ def ring_edges(nodes: int, device: torch.device | None = None) -> Tensor:
     return torch.stack([values, torch.cat([target, source, source])])
 
 
+def spatial_edges(observation: np.ndarray, device: torch.device | None = None, k: int = 4) -> Tensor:
+    """Build symmetric kNN edges from normalized bbox centers."""
+    points = observation[:, :2]
+    pairs: set[tuple[int, int]] = {(i, i) for i in range(len(points))}
+    for i in range(len(points)):
+        distances = np.sum((points - points[i]) ** 2, axis=1); distances[i] = np.inf
+        for j in np.argsort(distances)[:min(k, max(1, len(points) - 1))]:
+            pairs.add((i, int(j))); pairs.add((int(j), i))
+    return torch.tensor(list(pairs), dtype=torch.long, device=device).T
+
+
 class GATActorCritic(nn.Module):
     def __init__(self, feature_dim: int = 8, hidden_dim: int = 32, actions: int = 4) -> None:
         super().__init__()

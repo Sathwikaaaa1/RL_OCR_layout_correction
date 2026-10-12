@@ -74,10 +74,23 @@ python scripts/train_ppo.py --aligned data/synthetic/aligned --max-pages 20 --ep
 The trainer derives structural action targets from alignment labels, applies
 clipped PPO with GAE, and uses the GAT encoder for per-line policy/value
 predictions. Rewards are currently shaped against those derived labels; this
-is a training baseline, not a production reward model.
+is a training baseline, not a production reward model. Train/test selection
+uses `data/synthetic/splits.json`:
+
+```powershell
+python scripts/train_ppo.py --split train --max-pages 30 --epochs 4 --output runs/ppo_train.pt
+python scripts/evaluate_policy.py --split test --checkpoint runs/ppo_train.pt --max-pages 10
+```
+
+The current 30-page training experiment reached mean train reward `-11.767`.
+On a 10-page held-out subset, derived action accuracy was `0.8058`; the
+heuristic reading-order accuracy was `0.6339`. These are not the same metric,
+so this is evidence that the PPO loop runs and learns proxy labels, not proof
+that reading order improves. A proper next iteration must construct corrected
+orders from actions and score structural IoU/Kendall improvement directly.
 
 Generated PDFs, images, OCR data, and run outputs are intentionally ignored by Git. The synthetic image directory is removed after OCR unless `--keep-images` is supplied.
 
 ## Project status
 
-Phase 0 scaffold, the Phase 1/2 data layer, the baseline/Gymnasium/GAT phase, and the initial PPO phase are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. The baseline reports mean order accuracy `0.7066` over 600 pages. A five-page PPO smoke test completed on CPU and wrote a checkpoint with mean episode reward `-19.600`. Generated data and checkpoints are ignored by Git.
+Phase 0 scaffold, the Phase 1/2 data layer, the baseline/Gymnasium/GAT phase, and the evaluation-focused PPO phase are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. The baseline reports mean order accuracy `0.7066` over 600 pages. Generated data and checkpoints are ignored by Git.

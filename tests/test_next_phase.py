@@ -8,7 +8,7 @@ gym = pytest.importorskip("gymnasium")
 
 from rlocr.env import OCRCorrectionEnv
 from rlocr.model import OCRGATEncoder
-from rlocr.ppo import GATActorCritic, ring_edges
+from rlocr.ppo import GATActorCritic, ring_edges, spatial_edges
 
 
 def test_env_episode() -> None:
@@ -25,3 +25,8 @@ def test_gat_shape() -> None:
 def test_actor_critic_shape() -> None:
     model = GATActorCritic(); observations = torch.rand(2, 4, 8); edges = ring_edges(4)
     logits, values = model(observations, edges); assert logits.shape == (2, 4, 4); assert values.shape == (2, 4)
+
+
+def test_spatial_edges_and_env_state_change() -> None:
+    page = {"ocr_lines": [{"id": "a", "bbox": [0, 0, 20, 20], "text": "a"}], "merge_pairs": [["a", "b"]]}
+    env = OCRCorrectionEnv(page, max_lines=4); observation, _ = env.reset(); assert spatial_edges(observation).shape[0] == 2; env.step(1); assert "a" in env.merged
