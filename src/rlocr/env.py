@@ -38,6 +38,13 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
 
     def _derive_targets(self) -> dict[str, int]:
         targets = {line["id"]: 0 for line in self.lines}
+        gt_order = self.page.get("gt_order", [])
+        native_order = self.page.get("tesseract_order", [])
+        if gt_order != native_order:
+            gt_position = {line_id: index for index, line_id in enumerate(gt_order)}
+            for index, line_id in enumerate(native_order):
+                if line_id in targets and gt_position.get(line_id, index) != index:
+                    targets[line_id] = 3
         for line_id in self.page.get("split_needed", []):
             if line_id in targets:
                 targets[line_id] = 2
@@ -45,13 +52,6 @@ class OCRCorrectionEnv(gym.Env[np.ndarray, int]):
             for line_id in pair:
                 if line_id in targets and targets[line_id] == 0:
                     targets[line_id] = 1
-        gt_order = self.page.get("gt_order", [])
-        native_order = self.page.get("tesseract_order", [])
-        if gt_order != native_order:
-            gt_position = {line_id: index for index, line_id in enumerate(gt_order)}
-            for index, line_id in enumerate(native_order):
-                if line_id in targets and targets[line_id] == 0 and gt_position.get(line_id, index) != index:
-                    targets[line_id] = 3
         return targets
 
     @staticmethod

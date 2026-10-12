@@ -96,6 +96,12 @@ the environment adds a Kendall-tau delta reward after each action. The first
 20-page retraining run remained at corrected tau `0.9953` versus native tau
 `0.9953`, so the policy has not demonstrated an order improvement yet.
 
+Link-priority targets and a 90-page test evaluation were also checked. The
+test split contains only four genuine native-order failures; corrected tau
+remained `0.99855`, equal to native tau, and macro action F1 was `0.2271`.
+This confirms that harder, stratified multi-column/sidebar examples are needed
+before policy gains can be measured reliably.
+
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
 accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,

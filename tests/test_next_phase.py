@@ -47,3 +47,8 @@ def test_behavior_clone_step() -> None:
 def test_link_target_uses_per_line_order_mismatch() -> None:
     page = {"ocr_lines": [{"id": "a", "bbox": [0, 0, 10, 10], "native_order": 0}, {"id": "b", "bbox": [0, 20, 10, 30], "native_order": 1}], "gt_order": ["b", "a"], "tesseract_order": ["a", "b"]}
     env = OCRCorrectionEnv(page); assert env.page["action_targets"]["a"] == 3 and env.page["action_targets"]["b"] == 3
+
+
+def test_link_target_precedes_merge_target() -> None:
+    page = {"ocr_lines": [{"id": "a", "bbox": [0, 0, 10, 10], "native_order": 0}, {"id": "b", "bbox": [0, 20, 10, 30], "native_order": 1}], "gt_order": ["b", "a"], "tesseract_order": ["a", "b"], "merge_pairs": [["a", "b"]]}
+    assert OCRCorrectionEnv(page).page["action_targets"]["a"] == 3
