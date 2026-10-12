@@ -74,3 +74,7 @@ Images go to data/synthetic/images_tmp/ and are DELETED after OCR to save disk (
 - Do not start the next task. Stop after this scope.
 
 Start from phase 0
+
+## Status
+
+The initial data pipeline, baseline/Gymnasium/GAT/PPO prototypes, hard 40-page corpus, and pairwise GAT scorer are implemented. Stage 1 of the gated continuation is complete: the 800-page hard corpus has 100% native-order disagreement and mean Kendall tau 0.215, with 52.59 MB on disk. The latest verified state is 12 passing tests before Stage 1 changes; native OCR still outperforms the learned order models. Stage 2 is the active clean-label diagnostics gate.

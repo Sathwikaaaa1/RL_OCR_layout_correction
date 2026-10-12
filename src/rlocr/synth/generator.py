@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import fitz
+import cv2
+import numpy as np
 from faker import Faker
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -63,7 +65,7 @@ def _column_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: st
             bbox = (x, next_y - 2, x + col_w, y + 4)
             block_id = f"{page_id}_b{len(blocks):03d}"
             _add_block(blocks, block_id, kind, bbox, text, col, used, dpi)
-            order.append(block_id)
+            order.insert(len(order) // 2, block_id)
             y = next_y - rng.uniform(8, 16)
             if y < 70:
                 break
@@ -141,6 +143,23 @@ def generate_pages(config: dict[str, Any], root: Path, count: int | None = None,
             blocks, order = _special_page(c, rng, fake, template, dpi, page_id, bool(config.get("hard_mode", False)))
         c.save()
         doc = fitz.open(str(pdf_path)); pix = doc[0].get_pixmap(dpi=dpi, alpha=False); pix.save(str(image_path)); doc.close()
+        degradation = config.get("degradation", {})
+        if degradation.get("enabled", False):
+            image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+            sigma = float(degradation.get("blur_sigma", 0.0))
+            if sigma > 0:
+                image = cv2.GaussianBlur(image, (0, 0), sigma)
+            noise = float(degradation.get("noise_std", 0.0))
+            if noise > 0:
+                rng_noise = np.random.default_rng(int(config.get("seed", 1337)) + index)
+                image = np.clip(image.astype(np.float32) + rng_noise.normal(0, noise, image.shape), 0, 255).astype(np.uint8)
+            rotation = float(degradation.get("rotation_degrees", 0.0))
+            if rotation > 0:
+                rng_angle = random.Random(int(config.get("seed", 1337)) + index)
+                angle = rng_angle.uniform(-rotation, rotation)
+                matrix = cv2.getRotationMatrix2D((image.shape[1] / 2, image.shape[0] / 2), angle, 1.0)
+                image = cv2.warpAffine(image, matrix, (image.shape[1], image.shape[0]), borderValue=255)
+            cv2.imwrite(str(image_path), image)
         for block in blocks:
             block.pop("_pt_bbox", None); block.pop("_height", None)
         write_json(gt_path, {"page_id": page_id, "width": round(PAGE_W * dpi / 72), "height": round(PAGE_H * dpi / 72), "template": template, "blocks": blocks, "reading_order": order})

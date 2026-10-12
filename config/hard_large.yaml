@@ -1,0 +1,43 @@
+seed: 90210
+num_pages: 800
+dpi: 150
+hard_mode: true
+split_ratios:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+templates:
+  - two_column
+  - two_column
+  - two_column
+  - two_column
+  - three_column
+  - three_column
+  - three_column
+  - three_column
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - table
+  - table
+  - table
+  - table
+  - mixed
+ocr:
+  language: eng
+  tesseract_cmd: null
+paths:
+  data_root: data/synthetic_hard_large
+  images_tmp: data/synthetic_hard_large/images_tmp
+  pdf: data/synthetic_hard_large/pdf
+  gt: data/synthetic_hard_large/gt
+  ocr: data/synthetic_hard_large/ocr
+  aligned: data/synthetic_hard_large/aligned
+  splits: data/synthetic_hard_large/splits.json
+  viz: runs/viz_hard_large
+degradation:
+  enabled: true
+  blur_sigma: 0.35
+  noise_std: 2.0
+  rotation_degrees: 1.0

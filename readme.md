@@ -114,6 +114,17 @@ other line and ranks from those scores. On the hard corpus it reached Kendall
 tau `0.8060` after 4 epochs and `0.8564` after 20 epochs, still below native
 `0.8759`; the implementation is valid but needs better features or training.
 
+Stage 1 hard corpus reproduction:
+
+```powershell
+$env:TESSERACT_CMD = "F:\Tesseract-OCR\tesseract.exe"
+python scripts/build_dataset.py --config config/hard_large.yaml --num-pages 800
+python scripts/report_native_metrics.py --aligned data/synthetic_hard_large/aligned --gt data/synthetic_hard_large/gt
+```
+
+The 800-page hard corpus uses a new seed and has 100% native-order
+disagreement, mean Kendall tau `0.215`, and disk usage of `52.59 MB`.
+
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
 accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,
