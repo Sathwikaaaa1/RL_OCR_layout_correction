@@ -10,7 +10,8 @@ from rlocr.env import OCRCorrectionEnv
 from rlocr.model import OCRGATEncoder
 from rlocr.model import PairwiseOrderModel
 from rlocr.ppo import GATActorCritic, ring_edges, spatial_edges
-from rlocr.evaluation import corrected_order, pair_f1
+from rlocr.evaluation import corrected_order, decode_pairwise_order, pair_f1
+from rlocr.ocr.alignment import kendall_tau
 
 
 def test_env_episode() -> None:
@@ -57,3 +58,12 @@ def test_link_target_precedes_merge_target() -> None:
 
 def test_pairwise_order_shape() -> None:
     model = PairwiseOrderModel(input_dim=8, hidden_dim=4); scores = model(torch.rand(4, 8), ring_edges(4)); assert scores.shape == (4, 4)
+
+
+def test_oracle_pairwise_decoder() -> None:
+    ids = ["a", "b", "c"]; pairs = {("a", "b"), ("a", "c"), ("b", "c")}; assert decode_pairwise_order(ids, pairs) == ids
+
+
+def test_kendall_matches_scipy() -> None:
+    from scipy.stats import kendalltau
+    a = ["a", "b", "c"]; b = ["b", "a", "c"]; ours = kendall_tau(a, b); scipy_value = float(kendalltau([0, 1, 2], [1, 0, 2]).statistic); assert abs(ours - scipy_value) < 1e-9

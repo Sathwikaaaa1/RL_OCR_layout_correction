@@ -35,9 +35,10 @@ class OCRGATEncoder(nn.Module):
 class PairwiseOrderModel(nn.Module):
     """GAT encoder followed by an explicit pairwise precedence scorer."""
     def __init__(self, input_dim: int = 8, hidden_dim: int = 32) -> None:
-        super().__init__(); self.encoder = OCRGATEncoder(input_dim, hidden_dim, heads=2); self.scorer = nn.Sequential(nn.Linear(hidden_dim * 2, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1))
+        super().__init__(); self.input_dim = input_dim; self.encoder = OCRGATEncoder(input_dim, hidden_dim, heads=2); self.scorer = nn.Sequential(nn.Linear(hidden_dim * 2 + input_dim * 2, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, 1))
 
     def forward(self, node_features: Tensor, edge_index: Tensor) -> Tensor:
         embeddings = self.encoder(node_features, edge_index); count = embeddings.size(0)
         left = embeddings[:, None, :].expand(count, count, -1); right = embeddings[None, :, :].expand(count, count, -1)
-        return self.scorer(torch.cat([left, right], dim=-1)).squeeze(-1)
+        raw = self.scorer(torch.cat([left, right, node_features[:, None, :].expand(count, count, -1), node_features[None, :, :].expand(count, count, -1)], dim=-1)).squeeze(-1)
+        return raw - raw.transpose(0, 1)

@@ -77,4 +77,4 @@ Start from phase 0
 
 ## Status
 
-The initial data pipeline, baseline/Gymnasium/GAT/PPO prototypes, hard 40-page corpus, and pairwise GAT scorer are implemented. Stage 1 of the gated continuation is complete: the 800-page hard corpus has 100% native-order disagreement and mean Kendall tau 0.215, with 52.59 MB on disk. The latest verified state is 12 passing tests before Stage 1 changes; native OCR still outperforms the learned order models. Stage 2 is the active clean-label diagnostics gate.
+The initial data pipeline, baseline/Gymnasium/GAT/PPO prototypes, hard 40-page corpus, and pairwise GAT scorer are implemented. Stage 1 of the gated continuation is complete: the 800-page hard corpus has 100% native-order disagreement and mean Kendall tau 0.215, with 52.59 MB on disk. Stage 2 label rebuild and diagnostics are implemented: the oracle decoder and SciPy Kendall checks pass, but the neural pairwise overfit gate fails (20-page same-set mean tau 0.4642 after 100 epochs). Work is stopped at this gate; Stage 3 must not begin until the model/feature diagnosis is fixed.

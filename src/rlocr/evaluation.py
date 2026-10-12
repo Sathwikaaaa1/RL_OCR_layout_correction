@@ -6,6 +6,14 @@ from typing import Any
 from rlocr.ocr.alignment import kendall_tau
 
 
+def decode_pairwise_order(ids: list[str], precedence_pairs: set[tuple[str, str]]) -> list[str]:
+    wins = {line_id: 0 for line_id in ids}
+    for left, right in precedence_pairs:
+        if left in wins and right in wins:
+            wins[left] += 1
+    return sorted(ids, key=lambda line_id: (-wins[line_id], ids.index(line_id)))
+
+
 def corrected_order(lines: list[dict[str, Any]], actions: dict[str, int]) -> list[str]:
     """Construct an order from actions without using ground truth.
 

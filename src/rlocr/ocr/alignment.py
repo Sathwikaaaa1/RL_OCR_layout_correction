@@ -18,16 +18,26 @@ def align_page(ocr_lines: list[dict[str, Any]], gt_blocks: list[dict[str, Any]],
         candidates.sort(key=lambda value: (value[1], value[2]), reverse=True)
         scores[line["id"]] = [(block_id, overlap * 0.8 + similarity * 0.2) for block_id, overlap, similarity in candidates]
     mapping = {line_id: (values[0][0] if values and values[0][1] >= 0.10 else None) for line_id, values in scores.items()}
-    merge_pairs = [[a["id"], b["id"]] for a, b in combinations(ocr_lines, 2) if mapping.get(a["id"]) and mapping.get(a["id"]) == mapping.get(b["id"])]
+    valid_lines = [line for line in ocr_lines if mapping.get(line["id"])]
+    block_by_id = {block["id"]: block for block in gt_blocks}
+    grouped: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for line in valid_lines:
+        block = block_by_id[mapping[line["id"]]]; grouped.setdefault((block["id"], int(block.get("column_index", 0))), []).append(line)
+    merge_pairs = []
+    for group in grouped.values():
+        group.sort(key=lambda line: (line["bbox"][1], line["bbox"][0]))
+        merge_pairs.extend([[left["id"], right["id"]] for left, right in zip(group, group[1:])])
     split_needed = []
     for line in ocr_lines:
         covered = [block["id"] for block in gt_blocks if intersection_over_line(line["bbox"], block["bbox"]) >= 0.15]
         if len(covered) > 1:
             split_needed.append(line["id"])
     block_rank = {block_id: index for index, block_id in enumerate(reading_order)}
-    gt_order = sorted([line["id"] for line in ocr_lines if mapping[line["id"]]], key=lambda line_id: block_rank.get(mapping[line_id], 10**9))
-    tesseract_order = [line["id"] for line in sorted(ocr_lines, key=lambda item: item["native_order"])]
-    return {"ocr_lines": ocr_lines, "gt_blocks": gt_blocks, "ocr_to_gt": mapping, "merge_pairs": merge_pairs, "split_needed": split_needed, "gt_order": gt_order, "tesseract_order": tesseract_order, "stats": {"ocr_line_count": len(ocr_lines), "merge_pair_count": len(merge_pairs), "split_line_count": len(split_needed)}}
+    gt_order = [line["id"] for line in sorted(valid_lines, key=lambda line: (block_rank.get(mapping[line["id"]], 10**9), line["bbox"][1], line["bbox"][0]))]
+    tesseract_order = [line["id"] for line in sorted(valid_lines, key=lambda item: item["native_order"])]
+    order_rank = {line_id: index for index, line_id in enumerate(gt_order)}
+    order_pairs = [[left, right] for left, right in combinations(gt_order, 2) if order_rank[left] < order_rank[right]]
+    return {"ocr_lines": ocr_lines, "gt_blocks": gt_blocks, "ocr_to_gt": mapping, "valid_line_ids": [line["id"] for line in valid_lines], "dropped_line_count": len(ocr_lines) - len(valid_lines), "merge_pairs": merge_pairs, "split_needed": split_needed, "order_pairs": order_pairs, "gt_order": gt_order, "tesseract_order": tesseract_order, "stats": {"ocr_line_count": len(ocr_lines), "valid_line_count": len(valid_lines), "dropped_line_count": len(ocr_lines) - len(valid_lines), "merge_pair_count": len(merge_pairs), "split_line_count": len(split_needed)}}
 
 
 def kendall_tau(order_a: list[str], order_b: list[str]) -> float:

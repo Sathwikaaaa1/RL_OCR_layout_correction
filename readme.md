@@ -125,6 +125,14 @@ python scripts/report_native_metrics.py --aligned data/synthetic_hard_large/alig
 The 800-page hard corpus uses a new seed and has 100% native-order
 disagreement, mean Kendall tau `0.215`, and disk usage of `52.59 MB`.
 
+Stage 2 diagnostics rebuilt labels with adjacent same-block Merge pairs,
+valid-line filtering, significant-overlap Split labels, and pairwise order
+labels. The oracle decoder passed with Kendall tau `1.0` across 800 pages, and
+the custom Kendall implementation matched SciPy. The required neural
+overfit gate failed: the pairwise GAT reached only `0.4642` mean tau on the
+same 20 pages after 100 epochs. Stage 3 is intentionally blocked until this
+model/feature failure is fixed.
+
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
 accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,
