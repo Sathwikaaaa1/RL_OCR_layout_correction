@@ -82,6 +82,13 @@ python scripts/train_ppo.py --split train --max-pages 30 --epochs 4 --output run
 python scripts/evaluate_policy.py --split test --checkpoint runs/ppo_train.pt --max-pages 10
 ```
 
+Evaluation now reconstructs an action-conditioned reading order and reports
+Kendall tau plus merge/split F1. The current held-out result is policy action
+accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,
+merge F1 `0.5122`, and split F1 `0.4000`. The equal Kendall scores mean this
+checkpoint has not yet improved reading order; the next model iteration should
+learn a link policy that changes ordering rather than only proxy action labels.
+
 The current 30-page training experiment reached mean train reward `-11.767`.
 On a 10-page held-out subset, derived action accuracy was `0.8058`; the
 heuristic reading-order accuracy was `0.6339`. These are not the same metric,
