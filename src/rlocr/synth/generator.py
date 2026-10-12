@@ -41,11 +41,11 @@ def _draw_wrapped(c: canvas.Canvas, text: str, x: float, y: float, width: float,
     return y - len(lines) * leading, len(lines) * leading
 
 
-def _column_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: str, dpi: int, page_id: str) -> tuple[list[dict[str, Any]], list[str]]:
+def _column_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: str, dpi: int, page_id: str, hard: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
     blocks: list[dict[str, Any]] = []
     order: list[str] = []
-    margin = rng.uniform(42, 60)
-    gap = rng.uniform(16, 28)
+    margin = rng.uniform(34, 46) if hard else rng.uniform(42, 60)
+    gap = rng.uniform(7, 13) if hard else rng.uniform(16, 28)
     cols = {"single_column": 1, "two_column": 2, "three_column": 3}.get(template, 1)
     col_w = (PAGE_W - 2 * margin - (cols - 1) * gap) / cols
     top = PAGE_H - margin
@@ -57,7 +57,7 @@ def _column_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: st
                 text, kind, size = fake.sentence(nb_words=rng.randint(4, 8)), "heading", rng.uniform(15, 19)
                 text = text.rstrip(".")
             else:
-                text, kind, size = _text(rng, fake, rng.randint(24, 42)), "paragraph", rng.uniform(8.5, 10.5)
+                text, kind, size = _text(rng, fake, rng.randint(38, 58) if hard else rng.randint(24, 42)), "paragraph", rng.uniform(8.5, 10.5)
             font = rng.choice(FONTS)
             next_y, used = _draw_wrapped(c, text, x, y, col_w, font, size, size * 1.25)
             bbox = (x, next_y - 2, x + col_w, y + 4)
@@ -70,8 +70,8 @@ def _column_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: st
     return blocks, order
 
 
-def _special_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: str, dpi: int, page_id: str) -> tuple[list[dict[str, Any]], list[str]]:
-    blocks, order = _column_page(c, rng, fake, "single_column", dpi, page_id)
+def _special_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: str, dpi: int, page_id: str, hard: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
+    blocks, order = _column_page(c, rng, fake, "single_column", dpi, page_id, hard)
     if template == "header_footer":
         header = fake.sentence(nb_words=6)
         c.setFont("Helvetica-Bold", 11); c.drawString(50, PAGE_H - 35, header)
@@ -82,12 +82,15 @@ def _special_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: s
         order = [blocks[-2]["id"]] + order + [blocks[-1]["id"]]
     elif template == "sidebar":
         text = fake.sentence(nb_words=12)
-        x, y, w, h = PAGE_W - 150, PAGE_H - 230, 95, 150
+        x, y, w, h = (48, PAGE_H - 230, 110, 170) if hard else (PAGE_W - 150, PAGE_H - 230, 95, 150)
         c.setFillColorRGB(.92, .92, .96); c.rect(x, y, w, h, fill=1, stroke=1); c.setFillColorRGB(0, 0, 0)
         _draw_wrapped(c, text, x + 8, y + h - 18, w - 16, "Helvetica-Oblique", 9, 12)
         block_id = f"{page_id}_sidebar"
         _add_block(blocks, block_id, "sidebar", (x, y, x + w, y + h), text, 1, h, dpi)
-        order.insert(min(2, len(order)), block_id)
+        if hard:
+            order.append(block_id)
+        else:
+            order.insert(min(2, len(order)), block_id)
     elif template == "heading_body_figure":
         x, y, w, h = 330, 155, 210, 125
         c.setFillColorRGB(.85, .85, .85); c.rect(x, y, w, h, fill=1, stroke=1); c.setFillColorRGB(0, 0, 0)
@@ -133,9 +136,9 @@ def generate_pages(config: dict[str, Any], root: Path, count: int | None = None,
         c = canvas.Canvas(str(pdf_path), pagesize=letter)
         c.setTitle(page_id)
         if template in {"single_column", "two_column", "three_column"}:
-            blocks, order = _column_page(c, rng, fake, template, dpi, page_id)
+            blocks, order = _column_page(c, rng, fake, template, dpi, page_id, bool(config.get("hard_mode", False)))
         else:
-            blocks, order = _special_page(c, rng, fake, template, dpi, page_id)
+            blocks, order = _special_page(c, rng, fake, template, dpi, page_id, bool(config.get("hard_mode", False)))
         c.save()
         doc = fitz.open(str(pdf_path)); pix = doc[0].get_pixmap(dpi=dpi, alpha=False); pix.save(str(image_path)); doc.close()
         for block in blocks:

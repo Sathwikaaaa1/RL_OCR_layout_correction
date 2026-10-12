@@ -1,0 +1,27 @@
+seed: 4242
+num_pages: 40
+dpi: 150
+hard_mode: true
+split_ratios:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+templates:
+  - two_column
+  - three_column
+  - sidebar
+  - table
+ocr:
+  language: eng
+  tesseract_cmd: null
+paths:
+  data_root: data/synthetic_hard
+  images_tmp: data/synthetic_hard/images_tmp
+  pdf: data/synthetic_hard/pdf
+  gt: data/synthetic_hard/gt
+  ocr: data/synthetic_hard/ocr
+  aligned: data/synthetic_hard/aligned
+  splits: data/synthetic_hard/splits.json
+  viz: runs/viz_hard
+degradation:
+  enabled: false
