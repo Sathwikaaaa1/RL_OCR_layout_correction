@@ -8,6 +8,7 @@ gym = pytest.importorskip("gymnasium")
 
 from rlocr.env import OCRCorrectionEnv
 from rlocr.model import OCRGATEncoder
+from rlocr.model import PairwiseOrderModel
 from rlocr.ppo import GATActorCritic, ring_edges, spatial_edges
 from rlocr.evaluation import corrected_order, pair_f1
 
@@ -52,3 +53,7 @@ def test_link_target_uses_per_line_order_mismatch() -> None:
 def test_link_target_precedes_merge_target() -> None:
     page = {"ocr_lines": [{"id": "a", "bbox": [0, 0, 10, 10], "native_order": 0}, {"id": "b", "bbox": [0, 20, 10, 30], "native_order": 1}], "gt_order": ["b", "a"], "tesseract_order": ["a", "b"], "merge_pairs": [["a", "b"]]}
     assert OCRCorrectionEnv(page).page["action_targets"]["a"] == 3
+
+
+def test_pairwise_order_shape() -> None:
+    model = PairwiseOrderModel(input_dim=8, hidden_dim=4); scores = model(torch.rand(4, 8), ring_edges(4)); assert scores.shape == (4, 4)

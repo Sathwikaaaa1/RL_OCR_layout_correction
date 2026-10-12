@@ -108,6 +108,12 @@ order disagreement is `22.5%` with mean Kendall tau `0.8843`. Training on its
 28-page train split and evaluating six held-out pages currently gives policy
 action accuracy `0.8279`, but corrected tau `0.8759`, equal to native tau.
 
+An explicit pairwise-order GAT scorer is available via
+`scripts/train_pairwise.py`. It predicts whether each line precedes every
+other line and ranks from those scores. On the hard corpus it reached Kendall
+tau `0.8060` after 4 epochs and `0.8564` after 20 epochs, still below native
+`0.8759`; the implementation is valid but needs better features or training.
+
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
 accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,
