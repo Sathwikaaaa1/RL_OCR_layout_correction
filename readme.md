@@ -122,16 +122,24 @@ python scripts/build_dataset.py --config config/hard_large.yaml --num-pages 800
 python scripts/report_native_metrics.py --aligned data/synthetic_hard_large/aligned --gt data/synthetic_hard_large/gt
 ```
 
-The 800-page hard corpus uses a new seed and has 100% native-order
-disagreement, mean Kendall tau `0.215`, and disk usage of `52.59 MB`.
+An audit found that the synthetic column generator had been interleaving
+column blocks in `reading_order` instead of using column-major order. After
+fixing that ground-truth bug and rebuilding the caches, the 800-page hard
+corpus has mean native Kendall tau `0.917` and `31.0%` disagreement. The
+corrected 600-page normal corpus has mean tau `0.989` and `12.5%` disagreement;
+the old `0.215` result must not be used.
 
 Stage 2 diagnostics rebuilt labels with adjacent same-block Merge pairs,
 valid-line filtering, significant-overlap Split labels, and pairwise order
-labels. The oracle decoder passed with Kendall tau `1.0` across 800 pages, and
-the custom Kendall implementation matched SciPy. The required neural
-overfit gate failed: the pairwise GAT reached only `0.4642` mean tau on the
-same 20 pages after 100 epochs. Stage 3 is intentionally blocked until this
-model/feature failure is fixed.
+labels. The oracle decoder passes with Kendall tau `1.0` across 800 pages, and
+the custom Kendall implementation matches SciPy. A recursive XY-cut reference
+reaches mean tau `0.856` on the hard set, below native OCR because narrow
+gutters and overlapping sidebars remain difficult. A pair-feature MLP reaches
+pairwise accuracy `0.9983` and mean tau `0.8702` on 20 pages. The corrected
+pairwise GAT reaches pairwise accuracy `0.9986` and mean tau `0.9521` after
+200 epochs on the same 20 pages, passing the `0.95` mean-tau overfit gate but
+with a worst-page tau of `0.7037`. Held-out policy improvement is not yet
+demonstrated; Stage 3 remains blocked pending a clean validation evaluation.
 
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
@@ -151,4 +159,9 @@ Generated PDFs, images, OCR data, and run outputs are intentionally ignored by G
 
 ## Project status
 
-Phase 0 scaffold, the Phase 1/2 data layer, the baseline/Gymnasium/GAT phase, and the evaluation-focused PPO phase are complete. The 600-page run completed with mean Kendall tau `0.990`, native-order disagreement `8.2%`, and data usage of about `22.14 MB`. The baseline reports mean order accuracy `0.7066` over 600 pages. Generated data and checkpoints are ignored by Git.
+Phase 0 scaffold, the Phase 1/2 data layer, baseline/Gymnasium/GAT prototypes,
+and evaluation-focused PPO experiments are complete. The corrected 600-page
+normal run has mean native Kendall tau `0.989` and `12.5%` disagreement.
+Generated data and checkpoints are ignored by Git. The next required
+evaluation is held-out comparison of native OCR, XY-cut, MLP, and GAT before
+starting PPO/RL environment work.

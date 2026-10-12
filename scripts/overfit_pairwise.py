@@ -22,7 +22,13 @@ for _ in range(args.epochs):
     for _, _, observation, edges, target, mask in records:
         loss = F.binary_cross_entropy_with_logits(model(observation, edges)[mask], target[mask]); optimizer.zero_grad(); loss.backward(); optimizer.step()
 taus = []
+pair_correct = pair_total = 0
 with torch.no_grad():
     for page, lines, observation, edges, _, _ in records:
-        scores = model(observation, edges); order = [lines[i]["id"] for i in scores.fill_diagonal_(0).mean(1).argsort(descending=True).tolist()]; taus.append(kendall_tau(order, page["gt_order"]))
-print(f"pages={len(taus)} epochs={args.epochs} overfit_mean_tau={sum(taus)/max(1,len(taus)):.4f} min_tau={min(taus) if taus else 0:.4f}")
+        scores = model(observation, edges)
+        rank = {value: i for i, value in enumerate(page["gt_order"])}
+        target = torch.tensor([[float(rank[left["id"]] < rank[right["id"]]) for right in lines] for left in lines])
+        mask = ~torch.eye(len(lines), dtype=torch.bool)
+        pair_correct += int(((scores > 0) == target)[mask].sum()); pair_total += int(mask.sum())
+        order = [lines[i]["id"] for i in scores.mean(1).argsort(descending=True).tolist()]; taus.append(kendall_tau(order, page["gt_order"]))
+print(f"pages={len(taus)} epochs={args.epochs} pairwise_accuracy={pair_correct/max(1,pair_total):.4f} overfit_mean_tau={sum(taus)/max(1,len(taus)):.4f} min_tau={min(taus) if taus else 0:.4f}")

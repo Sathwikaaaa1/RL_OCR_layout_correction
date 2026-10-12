@@ -6,6 +6,54 @@ from typing import Any
 from rlocr.ocr.alignment import kendall_tau
 
 
+def xy_cut_order(lines: list[dict[str, Any]]) -> list[str]:
+    """Return a deterministic recursive XY-cut order for OCR line boxes.
+
+    The largest whitespace gap is used to split a region.  X gaps are useful
+    for columns; Y gaps finish the top-to-bottom order inside a region.
+    This is a non-learned diagnostic, not a replacement for the policy.
+    """
+    if not lines:
+        return []
+
+    heights = sorted(max(1.0, float(line["bbox"][3] - line["bbox"][1])) for line in lines)
+    median_height = heights[len(heights) // 2]
+
+    def best_gap(group: list[dict[str, Any]], axis: int) -> tuple[float, int] | None:
+        ordered = sorted(group, key=lambda line: (line["bbox"][axis], line["bbox"][axis + 2]))
+        edge = float(ordered[0]["bbox"][axis + 2])
+        best: tuple[float, int] | None = None
+        for index, line in enumerate(ordered[1:], 1):
+            start = float(line["bbox"][axis])
+            gap = start - edge
+            if best is None or gap > best[0]:
+                best = (gap, index)
+            edge = max(edge, float(line["bbox"][axis + 2]))
+        return best
+
+    def split(group: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if len(group) <= 1:
+            return group
+        x_gap = best_gap(group, 0)
+        y_gap = best_gap(group, 1)
+        candidates: list[tuple[float, int, int]] = []
+        # Column gutters can be narrower than a rendered OCR line height.
+        # Keep the X threshold low enough to retain those columns, while the
+        # Y threshold remains stricter to avoid treating line spacing as a
+        # page-level split.
+        if x_gap and x_gap[0] >= max(8.0, 0.4 * median_height):
+            candidates.append((x_gap[0], 0, x_gap[1]))
+        if y_gap and y_gap[0] >= max(6.0, 0.75 * median_height):
+            candidates.append((y_gap[0], 1, y_gap[1]))
+        if not candidates:
+            return sorted(group, key=lambda line: (line["bbox"][1], line["bbox"][0], line.get("native_order", 0)))
+        _, axis, index = max(candidates)
+        ordered = sorted(group, key=lambda line: (line["bbox"][axis], line["bbox"][axis + 2]))
+        return split(ordered[:index]) + split(ordered[index:])
+
+    return [line["id"] for line in split(lines)]
+
+
 def decode_pairwise_order(ids: list[str], precedence_pairs: set[tuple[str, str]]) -> list[str]:
     wins = {line_id: 0 for line_id in ids}
     for left, right in precedence_pairs:

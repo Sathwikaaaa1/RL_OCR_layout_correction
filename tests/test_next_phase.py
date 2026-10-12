@@ -10,7 +10,7 @@ from rlocr.env import OCRCorrectionEnv
 from rlocr.model import OCRGATEncoder
 from rlocr.model import PairwiseOrderModel
 from rlocr.ppo import GATActorCritic, ring_edges, spatial_edges
-from rlocr.evaluation import corrected_order, decode_pairwise_order, pair_f1
+from rlocr.evaluation import corrected_order, decode_pairwise_order, pair_f1, xy_cut_order
 from rlocr.ocr.alignment import kendall_tau
 
 
@@ -67,3 +67,13 @@ def test_oracle_pairwise_decoder() -> None:
 def test_kendall_matches_scipy() -> None:
     from scipy.stats import kendalltau
     a = ["a", "b", "c"]; b = ["b", "a", "c"]; ours = kendall_tau(a, b); scipy_value = float(kendalltau([0, 1, 2], [1, 0, 2]).statistic); assert abs(ours - scipy_value) < 1e-9
+
+
+def test_xy_cut_orders_wide_two_columns() -> None:
+    lines = [
+        {"id": "a0", "bbox": [0, 0, 40, 10], "native_order": 0},
+        {"id": "a1", "bbox": [0, 20, 40, 30], "native_order": 1},
+        {"id": "b0", "bbox": [100, 0, 140, 10], "native_order": 2},
+        {"id": "b1", "bbox": [100, 20, 140, 30], "native_order": 3},
+    ]
+    assert xy_cut_order(lines) == ["a0", "a1", "b0", "b1"]

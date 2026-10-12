@@ -65,7 +65,10 @@ def _column_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: st
             bbox = (x, next_y - 2, x + col_w, y + 4)
             block_id = f"{page_id}_b{len(blocks):03d}"
             _add_block(blocks, block_id, kind, bbox, text, col, used, dpi)
-            order.insert(len(order) // 2, block_id)
+            # Reading order is column-major: finish column 1 top-to-bottom,
+            # then continue with column 2.  Midpoint insertion interleaves
+            # columns and produces an invalid ground-truth order.
+            order.append(block_id)
             y = next_y - rng.uniform(8, 16)
             if y < 70:
                 break
