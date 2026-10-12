@@ -82,6 +82,15 @@ python scripts/train_ppo.py --split train --max-pages 30 --epochs 4 --output run
 python scripts/evaluate_policy.py --split test --checkpoint runs/ppo_train.pt --max-pages 10
 ```
 
+Training uses inverse-frequency behavior-cloning warm-starts before PPO so
+rare Split/Link labels are not overwhelmed by dominant actions. Adjust the
+warm-start duration with `--bc-epochs`.
+
+The masked warm-start experiment reached action accuracy `0.8058` on the
+10-page test subset, with macro action F1 `0.2200`. Accuracy is therefore
+mostly reflecting the dominant Merge class; macro F1 is the more informative
+metric for future policy improvements.
+
 Evaluation now reconstructs an action-conditioned reading order and reports
 Kendall tau plus merge/split F1. The current held-out result is policy action
 accuracy `0.8058`, corrected Kendall tau `0.9953`, native Kendall tau `0.9953`,

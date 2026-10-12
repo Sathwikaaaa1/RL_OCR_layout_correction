@@ -85,6 +85,19 @@ class PPOTrainer:
             self.optimizer.zero_grad(); loss.backward(); nn.utils.clip_grad_norm_(self.model.parameters(), 1.0); self.optimizer.step(); loss_value = float(loss.detach())
         return loss_value
 
+    def behavior_clone(self, observations: Tensor, targets: Tensor, edge_index: Tensor, epochs: int = 1, valid_mask: Tensor | None = None) -> float:
+        """Warm-start on alignment labels with inverse-frequency weighting."""
+        if valid_mask is None:
+            valid_mask = torch.ones_like(targets, dtype=torch.bool)
+        flat_targets = targets.reshape(-1)[valid_mask.reshape(-1)]
+        weights = torch.bincount(flat_targets, minlength=4).float().clamp_min(1).reciprocal()
+        weights = weights / weights.mean(); loss_value = 0.0
+        for _ in range(epochs):
+            logits, _ = self.model(observations, edge_index)
+            loss = nn.functional.cross_entropy(logits.reshape(-1, 4)[valid_mask.reshape(-1)], flat_targets, weight=weights)
+            self.optimizer.zero_grad(); loss.backward(); nn.utils.clip_grad_norm_(self.model.parameters(), 1.0); self.optimizer.step(); loss_value = float(loss.detach())
+        return loss_value
+
 
 def collect_episode(env: object, model: GATActorCritic, edge_index: Tensor, device: torch.device) -> tuple[list[Tensor], list[int], list[Tensor], list[float], list[bool], float]:
     observation, _ = env.reset(); states: list[Tensor] = []; nodes: list[int] = []; actions: list[Tensor] = []; log_probs: list[Tensor] = []; rewards: list[float] = []; dones: list[bool] = []
