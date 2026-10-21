@@ -11,6 +11,7 @@ from rlocr.model import OCRGATEncoder
 from rlocr.model import PairwiseOrderModel
 from rlocr.ppo import GATActorCritic, ring_edges, spatial_edges
 from rlocr.evaluation import corrected_order, decode_pairwise_order, pair_f1, xy_cut_order
+from rlocr.order_features import pair_feature_row
 from rlocr.ocr.alignment import kendall_tau
 
 
@@ -77,3 +78,13 @@ def test_xy_cut_orders_wide_two_columns() -> None:
         {"id": "b1", "bbox": [100, 20, 140, 30], "native_order": 3},
     ]
     assert xy_cut_order(lines) == ["a0", "a1", "b0", "b1"]
+
+
+def test_pair_features_include_native_rank_difference_and_same_column() -> None:
+    left = {"bbox": [0, 0, 40, 10], "native_order": 0, "block_num": 1}
+    right = {"bbox": [0, 20, 40, 30], "native_order": 2, "block_num": 1}
+    row = pair_feature_row(left, right, 4)
+    assert len(row) == 13
+    assert row[9] == 1.0
+    assert row[10] == -0.5
+    assert row[12] == 1.0

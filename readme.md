@@ -157,6 +157,29 @@ orders from actions and score structural IoU/Kendall improvement directly.
 
 Generated PDFs, images, OCR data, and run outputs are intentionally ignored by Git. The synthetic image directory is removed after OCR unless `--keep-images` is supplied.
 
+## Native-aware pairwise baseline
+
+`src/rlocr/order_features.py` provides OCR-only pair features including geometry,
+estimated same-column status, Tesseract block equality, native rank, native rank
+difference, and a native-order prior. `scripts/gradient_boosted_baseline.py`
+trains a scikit-learn `HistGradientBoostingClassifier`, tunes the prior on the
+validation split, and reports native, XY-cut, and learned Kendall tau with
+page-bootstrap confidence intervals, template breakdowns, unambiguous-line
+metrics, pairwise accuracy, and decoder-noise probes.
+
+Example full-split command (CPU-friendly sampling still includes every training
+page):
+
+```powershell
+python scripts/gradient_boosted_baseline.py --aligned data/synthetic_hard_large/aligned --splits data/synthetic_hard_large/splits.json --split test --pairs-per-page 64 --max-iter 5 --output runs/gradient_boosted_baseline_test.json
+```
+
+The one-page smoke path completed successfully. The full 560-page fit was
+attempted, but HistGradientBoosting exceeded the practical CPU/resource budget
+in this environment before producing held-out metrics; no baseline result is
+claimed yet. The existing held-out reference remains native tau `0.9282`,
+XY-cut tau `0.8581`, and pairwise-GAT tau `0.8765`.
+
 ## Project status
 
 Phase 0 scaffold, the Phase 1/2 data layer, baseline/Gymnasium/GAT prototypes,
