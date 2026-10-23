@@ -242,6 +242,7 @@ def main() -> None:
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--seed", type=int, default=271828)
     parser.add_argument("--bootstrap", type=int, default=10_000)
+    parser.add_argument("--only-fold", type=int, default=-1, help="Run one fold only; useful for timing and independent resume.")
     args = parser.parse_args()
     torch.set_num_threads(args.threads)
     np.random.seed(args.seed)
@@ -261,9 +262,22 @@ def main() -> None:
         if index % 250 == 0:
             print(f"loaded={index}/{len(pages)}", flush=True)
 
+    if args.only_fold >= args.folds:
+        raise ValueError("--only-fold must be smaller than --folds")
+    selected_folds = range(args.folds) if args.only_fold < 0 else (args.only_fold,)
     rows: list[dict[str, Any]] = []
-    for fold_index, fold in enumerate(folds):
+    for fold_index in selected_folds:
+        fold = folds[fold_index]
         rows.extend(train_fold(fold_index, fold, records, output, args))
+    if args.only_fold >= 0:
+        partial = {
+            "fold": args.only_fold,
+            "pages": len(rows),
+            "table": {method: method_summary(rows, method) for method in ("native", "raw_gat", "gated_gat", "best_of_oracle")},
+        }
+        write_json(output / f"fold_{args.only_fold}_report.json", partial)
+        print(json.dumps(partial, indent=2))
+        return
     expected = {key for key, _ in pages}
     observed = [row["key"] for row in rows]
     if len(observed) != len(expected) or set(observed) != expected:
