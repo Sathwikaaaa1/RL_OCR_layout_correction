@@ -185,6 +185,48 @@ XY-cut tau `0.8581`, and pairwise-GAT tau `0.8765`.
 Phase 0 scaffold, the Phase 1/2 data layer, baseline/Gymnasium/GAT prototypes,
 and evaluation-focused PPO experiments are complete. The corrected 600-page
 normal run has mean native Kendall tau `0.989` and `12.5%` disagreement.
-Generated data and checkpoints are ignored by Git. The next required
-evaluation is held-out comparison of native OCR, XY-cut, MLP, and GAT before
-starting PPO/RL environment work.
+Generated data and checkpoints are ignored by Git.
+
+## Native-aware gated evaluation
+
+Raw GAT inference now has one canonical implementation in
+`src/rlocr/gat_inference.py`. The earlier gated report's raw tau of `0.90811`
+was incorrect: that script used probability-Borda decoding and omitted the
+checkpoint's tuned native prior of `4.0`. Re-evaluation produces test tau
+`0.9286172431`, exactly matching the trainer's saved result. The corrected
+120-page gated report is in `runs/gated_decoder/`; its validation-selected
+gated tau is `0.933911`, and the per-page best of native/raw GAT is `0.934357`.
+
+The larger sidebar-heavy corpus uses seed `271828` and can be built or resumed
+with eight process-parallel Tesseract workers:
+
+```powershell
+python scripts/build_dataset.py --config config/sidebar_large.yaml --num-pages 1500 --workers 8
+```
+
+It contains 1,500 pages: 756 sidebar pages and 124 pages for each of
+header/footer, heading/figure, single-column, table, three-column, and
+two-column layouts. Native mean tau is `0.828959`, disagreement is `48.73%`,
+and sidebar tau is `0.662065`. OCR output is cached atomically per page and the
+temporary image is deleted only after that page succeeds.
+
+Five-fold grouped cross-validation over the original 800 hard pages plus the
+new 1,500 pages is resumable at both epoch and fold boundaries:
+
+```powershell
+python scripts/cross_validate_gat.py --output-dir runs/gat_cross_validation --max-epochs 2 --patience 1 --threads 1 --bootstrap 10000
+```
+
+Every page appears in exactly one out-of-fold test set. Each fold reserves 15%
+of its non-test pages for early stopping and selection of the native prior and
+gate thresholds. Pooled results over 2,300 pages are native `0.859682`, raw GAT
+`0.866001`, gated GAT `0.885913`, and best-of(native, raw GAT) `0.879174`.
+The gated-minus-native mean difference is `0.026231` with paired bootstrap
+95% CI `[0.022489, 0.030106]` and sign-flip `p=0.000100`. On sidebar pages,
+gating improves tau from `0.665882` to `0.732817`.
+
+The requested best-of oracle selects a whole native or raw-GAT order per page.
+It is not a mathematical upper bound for the pair-level gated decoder, which
+can construct a third hybrid order; this is why gated tau can exceed that
+diagnostic. Full tables, per-page predictions, fold checkpoints, selected
+thresholds, and the progress log are under `runs/gat_cross_validation/`.
