@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from rlocr.evaluation import kendall_tau, xy_cut_order
 from rlocr.env import OCRCorrectionEnv
 from rlocr.model import PairwiseOrderModel
-from rlocr.order_features import decode_pair_probabilities
+from rlocr.gat_inference import gat_inference_from_logits
 from rlocr.ppo import spatial_edges
 
 
@@ -72,9 +72,7 @@ def native_order(record: dict[str, Any]) -> list[str]:
 
 
 def decode_logits(record: dict[str, Any], logits: torch.Tensor, prior: float, noise: float = 0.0, seed: int = 0) -> list[str]:
-    rng = np.random.default_rng(seed)
-    probabilities = {(i, j): float(torch.sigmoid(logits[i, j]).item()) for i in range(len(record["lines"])) for j in range(i + 1, len(record["lines"]))}
-    return decode_pair_probabilities(record["lines"], probabilities, native_prior=prior, noise_std=noise, rng=rng)
+    return gat_inference_from_logits(logits, record["lines"], prior, noise, seed).order
 
 
 def pair_accuracy(record: dict[str, Any], logits: torch.Tensor) -> float:

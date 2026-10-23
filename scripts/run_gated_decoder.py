@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +11,8 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from rlocr.env import OCRCorrectionEnv
-from rlocr.gated_decoder import gated_order, native_order, paired_significance, raw_gat_order
+from rlocr.gat_inference import infer_gat
+from rlocr.gated_decoder import gated_order, native_order, paired_significance
 from rlocr.model import PairwiseOrderModel
 from rlocr.ocr.alignment import kendall_tau
 from rlocr.ppo import spatial_edges
@@ -33,19 +33,15 @@ def load_record(path: Path, gt_root: Path, max_lines: int) -> dict[str, Any]:
     return {"page": page, "lines": env.lines, "features": torch.from_numpy(observation[:n]).float(), "edges": spatial_edges(observation[:n], k=4), "path": str(path)}
 
 
-def infer(model: PairwiseOrderModel, record: dict[str, Any]) -> dict[tuple[int, int], float]:
-    with torch.no_grad():
-        logits = model(record["features"], record["edges"])
-    return {(i, j): float(torch.sigmoid(logits[i, j]).item()) for i, j in combinations(range(len(record["lines"])), 2)}
-
-
-def prepare(directory: Path, gt_root: Path, ids: list[str], max_lines: int, model: PairwiseOrderModel) -> list[dict[str, Any]]:
+def prepare(directory: Path, gt_root: Path, ids: list[str], max_lines: int, model: PairwiseOrderModel, native_prior: float) -> list[dict[str, Any]]:
     wanted = set(ids)
     records = []
     for path in sorted(directory.glob("*.json")):
         if path.stem in wanted:
             record = load_record(path, gt_root, max_lines)
-            record["probabilities"] = infer(model, record)
+            inference = infer_gat(model, record["features"], record["edges"], record["lines"], native_prior)
+            record["probabilities"] = inference.probabilities
+            record["raw_order"] = inference.order
             records.append(record)
     return records
 
@@ -63,11 +59,11 @@ def evaluate(records: list[dict[str, Any]], pair_threshold: float, page_threshol
     rows = []
     for record in records:
         native = native_order(record["lines"])
-        raw = raw_gat_order(record["lines"], record["probabilities"])
+        raw = record["raw_order"]
         gated, disagreements, changed = gated_order(record["lines"], record["probabilities"], pair_threshold, page_threshold)
         gt = record["page"]["gt_order"]
         clean = set(line["id"] for line in record["lines"] if line["id"] not in set(record["page"].get("split_needed", [])))
-        rows.append({"page_id": record["page"].get("page_id", Path(record["path"]).stem), "template": record["page"]["template"], "native": {"tau": tau(native, record), "unambiguous_tau": tau(native, record, True)}, "raw_gat": {"tau": tau(raw, record), "unambiguous_tau": tau(raw, record, True)}, "gated_gat": {"tau": tau(gated, record), "unambiguous_tau": tau(gated, record, True)}, "disagreements": disagreements, "changed": changed, "native_correct": tau(native, record) >= 0.999999})
+        rows.append({"page_id": record["page"].get("page_id", Path(record["path"]).stem), "template": record["page"]["template"], "native": {"tau": tau(native, record), "unambiguous_tau": tau(native, record, True), "changed": False}, "raw_gat": {"tau": tau(raw, record), "unambiguous_tau": tau(raw, record, True), "changed": raw != native}, "gated_gat": {"tau": tau(gated, record), "unambiguous_tau": tau(gated, record, True), "changed": changed}, "disagreements": disagreements, "changed": changed, "native_correct": tau(native, record) >= 0.999999})
     return rows
 
 
@@ -78,14 +74,14 @@ def mean(rows: list[dict[str, Any]], method: str, field: str = "tau") -> float:
 def summarize(rows: list[dict[str, Any]], method: str) -> dict[str, Any]:
     correct = [row for row in rows if row["native_correct"]]
     wrong = [row for row in rows if not row["native_correct"]]
-    return {"overall_tau": mean(rows, method), "native_correct_tau": mean(correct, method), "native_wrong_tau": mean(wrong, method), "per_template_tau": {template: mean([row for row in rows if row["template"] == template], method) for template in sorted({row["template"] for row in rows})}, "unambiguous_tau": mean(rows, method, "unambiguous_tau"), "pages_changed": sum(row["changed"] for row in rows) if method == "gated_gat" else None}
+    return {"overall_tau": mean(rows, method), "native_correct_tau": mean(correct, method), "native_wrong_tau": mean(wrong, method), "per_template_tau": {template: mean([row for row in rows if row["template"] == template], method) for template in sorted({row["template"] for row in rows})}, "unambiguous_tau": mean(rows, method, "unambiguous_tau"), "pages_changed": sum(bool(row[method].get("changed")) for row in rows)}
 
 
 def table_markdown(table: dict[str, Any]) -> list[str]:
     lines = ["| Method | Overall τ | Native-correct τ | Native-wrong τ | Unambiguous τ | Pages changed | Per-template τ |", "|---|---:|---:|---:|---:|---:|---|"]
     for method, value in table.items():
         templates = "; ".join(f"{key}: {score:.4f}" for key, score in value["per_template_tau"].items())
-        changed = value["pages_changed"] if value["pages_changed"] is not None else "-"
+        changed = value["pages_changed"]
         lines.append(f"| {method} | {value['overall_tau']:.4f} | {value['native_correct_tau']:.4f} | {value['native_wrong_tau']:.4f} | {value['unambiguous_tau']:.4f} | {changed} | {templates} |")
     return lines
 
@@ -106,36 +102,34 @@ model = PairwiseOrderModel(hidden_dim=int(checkpoint["args"].get("hidden_dim", 3
 model.load_state_dict(checkpoint["model"])
 model.eval()
 split_data = json.loads(Path(args.splits).read_text(encoding="utf-8"))
-records = {split: prepare(Path(args.aligned), Path(args.gt), split_data[split], args.max_lines, model) for split in ("val", "test")}
+native_prior = float(checkpoint["validation_prior"])
+records = {split: prepare(Path(args.aligned), Path(args.gt), split_data[split], args.max_lines, model, native_prior) for split in ("val", "test")}
 
 best = None
-safe_best = None
 for pair_threshold in PAIR_THRESHOLDS:
     for page_threshold in PAGE_THRESHOLDS:
         rows = evaluate(records["val"], pair_threshold, page_threshold)
         candidate = (mean(rows, "gated_gat"), -sum(row["changed"] for row in rows), -pair_threshold, -page_threshold)
         if best is None or candidate > best[0]:
             best = (candidate, pair_threshold, page_threshold, rows)
-        native_correct_safe = all(row["gated_gat"]["tau"] >= row["native"]["tau"] - 1e-12 for row in rows if row["native_correct"])
-        if native_correct_safe and (safe_best is None or candidate > safe_best[0]):
-            safe_best = (candidate, pair_threshold, page_threshold, rows)
-selected = safe_best or best
+selected = best
 _, pair_threshold, page_threshold, validation_rows = selected
 thresholds = {"pair_threshold": pair_threshold, "page_threshold": page_threshold, "validation_mean_tau": mean(validation_rows, "gated_gat"), "validation_pages_changed": sum(row["changed"] for row in validation_rows)}
-thresholds["validation_native_correct_safe"] = safe_best is not None
+thresholds["validation_native_correct_safe"] = all(row["gated_gat"]["tau"] >= row["native"]["tau"] - 1e-12 for row in validation_rows if row["native_correct"])
 
 test_rows = evaluate(records["test"], pair_threshold, page_threshold)
 for row in test_rows:
-    row["oracle_gate"] = row["native"] if row["native_correct"] else row["raw_gat"]
-table = {method: summarize(test_rows, method) for method in ("native", "raw_gat", "gated_gat", "oracle_gate")}
+    row["class_gate"] = row["native"] if row["native_correct"] else row["raw_gat"]
+    row["best_of_oracle"] = row["native"] if row["native"]["tau"] >= row["raw_gat"]["tau"] else row["raw_gat"]
+table = {method: summarize(test_rows, method) for method in ("native", "raw_gat", "gated_gat", "class_gate", "best_of_oracle")}
 native_values = [row["native"]["tau"] for row in test_rows]
-significance = {method: paired_significance([row[method]["tau"] for row in test_rows], native_values, 10_000, 90210) for method in ("raw_gat", "gated_gat", "oracle_gate")}
-report = {"checkpoint": args.checkpoint, "thresholds": thresholds, "validation": {"pages": len(validation_rows), "mean_tau": mean(validation_rows, "gated_gat")}, "test": {"pages": len(test_rows), "table": table, "significance": significance, "rows": test_rows}}
+significance = {method: paired_significance([row[method]["tau"] for row in test_rows], native_values, 10_000, 90210) for method in ("raw_gat", "gated_gat", "class_gate", "best_of_oracle")}
+report = {"checkpoint": args.checkpoint, "native_prior": native_prior, "thresholds": thresholds, "validation": {"pages": len(validation_rows), "mean_tau": mean(validation_rows, "gated_gat")}, "test": {"pages": len(test_rows), "table": table, "significance": significance, "rows": test_rows}}
 out = Path(args.output_dir)
 out.mkdir(parents=True, exist_ok=True)
 (out / "thresholds.json").write_text(json.dumps(thresholds, indent=2), encoding="utf-8")
 (out / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-markdown = ["# Native-retaining GAT decoder", "", f"Checkpoint: `{args.checkpoint}`", f"Validation thresholds: `T_pair={pair_threshold}`, `T_page={page_threshold}`", "", *table_markdown(table), "", "## Paired significance versus native", "", "| Method | Mean difference | 95% bootstrap CI | Sign-flip p-value | Better | Worse | Same |", "|---|---:|---|---:|---:|---:|---:|"]
+markdown = ["# Native-retaining GAT decoder", "", f"Checkpoint: `{args.checkpoint}`", f"Raw GAT native prior: `{native_prior}`", f"Validation thresholds: `T_pair={pair_threshold}`, `T_page={page_threshold}`", "", *table_markdown(table), "", "## Paired significance versus native", "", "| Method | Mean difference | 95% bootstrap CI | Sign-flip p-value | Better | Worse | Same |", "|---|---:|---|---:|---:|---:|---:|"]
 for method, value in significance.items():
     diff = value["difference"]
     markdown.append(f"| {method} | {diff['mean']:.6f} | [{diff['low']:.6f}, {diff['high']:.6f}] | {value['permutation_p_value']:.4f} | {value['better_pages']} | {value['worse_pages']} | {value['same_pages']} |")
