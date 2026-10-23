@@ -1,0 +1,50 @@
+seed: 271828
+num_pages: 1500
+dpi: 150
+hard_mode: true
+split_ratios:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+templates:
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - sidebar
+  - single_column
+  - single_column
+  - two_column
+  - two_column
+  - three_column
+  - three_column
+  - header_footer
+  - header_footer
+  - heading_body_figure
+  - heading_body_figure
+  - table
+  - table
+ocr:
+  language: eng
+  tesseract_cmd: null
+paths:
+  data_root: data/synthetic_sidebar_large
+  images_tmp: data/synthetic_sidebar_large/images_tmp
+  pdf: data/synthetic_sidebar_large/pdf
+  gt: data/synthetic_sidebar_large/gt
+  ocr: data/synthetic_sidebar_large/ocr
+  aligned: data/synthetic_sidebar_large/aligned
+  splits: data/synthetic_sidebar_large/splits.json
+  viz: runs/viz_sidebar_large
+degradation:
+  enabled: true
+  blur_sigma: 0.35
+  noise_std: 2.0
+  rotation_degrees: 1.0

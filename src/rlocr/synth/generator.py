@@ -124,19 +124,22 @@ def _special_page(c: canvas.Canvas, rng: random.Random, fake: Faker, template: s
 
 def generate_pages(config: dict[str, Any], root: Path, count: int | None = None, keep_images: bool = False) -> list[str]:
     output = ensure_dirs(config, root)
-    rng = random.Random(int(config.get("seed", 1337)))
-    fake = Faker(); fake.seed_instance(int(config.get("seed", 1337)))
+    base_seed = int(config.get("seed", 1337))
     dpi = int(config.get("dpi", 150)); templates = config.get("templates", [])
     total = count or int(config.get("num_pages", 600)); page_ids = []
     for index in range(total):
         page_id = f"page_{index:04d}"; page_ids.append(page_id)
+        page_seed = base_seed + index * 104729
+        rng = random.Random(page_seed)
+        fake = Faker(); fake.seed_instance(page_seed)
         template = templates[index % len(templates)] if templates else "single_column"
         if template == "mixed":
             template = rng.choice(["two_column", "sidebar", "heading_body_figure", "table"])
         pdf_path = output["pdf"] / f"{page_id}.pdf"
         image_path = output["images_tmp"] / f"{page_id}.png"
         gt_path = output["gt"] / f"{page_id}.json"
-        if gt_path.exists() and image_path.exists():
+        ocr_path = output["ocr"] / f"{page_id}.json"
+        if gt_path.exists() and (image_path.exists() or ocr_path.exists()):
             continue
         c = canvas.Canvas(str(pdf_path), pagesize=letter)
         c.setTitle(page_id)
@@ -154,11 +157,11 @@ def generate_pages(config: dict[str, Any], root: Path, count: int | None = None,
                 image = cv2.GaussianBlur(image, (0, 0), sigma)
             noise = float(degradation.get("noise_std", 0.0))
             if noise > 0:
-                rng_noise = np.random.default_rng(int(config.get("seed", 1337)) + index)
+                rng_noise = np.random.default_rng(page_seed)
                 image = np.clip(image.astype(np.float32) + rng_noise.normal(0, noise, image.shape), 0, 255).astype(np.uint8)
             rotation = float(degradation.get("rotation_degrees", 0.0))
             if rotation > 0:
-                rng_angle = random.Random(int(config.get("seed", 1337)) + index)
+                rng_angle = random.Random(page_seed)
                 angle = rng_angle.uniform(-rotation, rotation)
                 matrix = cv2.getRotationMatrix2D((image.shape[1] / 2, image.shape[0] / 2), angle, 1.0)
                 image = cv2.warpAffine(image, matrix, (image.shape[1], image.shape[0]), borderValue=255)
