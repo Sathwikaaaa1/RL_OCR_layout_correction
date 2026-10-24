@@ -94,14 +94,14 @@ def pair_dataset(
     return np.asarray(rows, dtype=np.float32), np.asarray(targets, dtype=np.int8), pairs
 
 
-def decode_pair_probabilities(
+def pair_probability_scores(
     lines: list[dict[str, Any]],
     probabilities: dict[tuple[int, int], float],
     native_prior: float = 1.0,
     noise_std: float = 0.0,
     rng: np.random.Generator | None = None,
-) -> list[str]:
-    """Decode pair probabilities with a native-order prior and Borda scores."""
+) -> np.ndarray:
+    """Canonical native-prior logit Borda scores, also used by PPO proposals."""
     count = len(lines)
     scores = np.zeros(count, dtype=np.float64)
     rng = rng or np.random.default_rng(0)
@@ -114,5 +114,17 @@ def decode_pair_probabilities(
         adjusted = logit + native_prior * native_direction
         scores[i] += adjusted
         scores[j] -= adjusted
+    return scores
+
+
+def decode_pair_probabilities(
+    lines: list[dict[str, Any]],
+    probabilities: dict[tuple[int, int], float],
+    native_prior: float = 1.0,
+    noise_std: float = 0.0,
+    rng: np.random.Generator | None = None,
+) -> list[str]:
+    """Decode through the shared native-prior scoring function."""
+    scores = pair_probability_scores(lines, probabilities, native_prior, noise_std, rng)
     return [lines[index]["id"] for index in np.argsort(-scores, kind="stable")]
 

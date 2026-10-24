@@ -253,3 +253,57 @@ All five folds improve. Mean gated-minus-native tau is `+0.010959` on the old
 gain is `+0.007922` (`[0.006700, 0.009149]`); matching the old template mix
 gives `+0.013941` (`[0.011795, 0.016123]`). These intervals condition on the
 saved models; they do not capture retraining uncertainty.
+
+## PPO native override policy
+
+Run the CPU benchmark or the complete three-seed experiment:
+
+```powershell
+python scripts/train_ppo_gate.py --benchmark-only
+python scripts/train_ppo_gate.py --steps 200000 --seeds 1337 4242 90210
+```
+
+The first run recovers and caches each page's pair probabilities from its
+saved held-out GAT fold. GAT weights remain frozen. PPO uses the shared
+native-prior scores at prior `4.0`, a fixed 70/15/15 page split (seed 314159),
+and a two-layer 64-unit MLP. Its two actions choose native's next unplaced OCR
+line or GAT's highest-scoring unplaced line; matching proposals are automatic.
+The existing OCR lines are the ordering units (no new block aggregation).
+Stable-baselines3 is not installed in this environment, so the implementation
+uses PyTorch PPO with GAE, clipping, and bootstrapping at rollout boundaries.
+
+Each seed's best checkpoint is selected only on PPO-validation mean tau,
+breaking ties by fewer overrides. The comparison gate's thresholds are also
+selected only on PPO-validation. All seed selections finish before PPO-test
+evaluation. Reports, per-page results, probability-cache provenance, selected
+checkpoints, histories, and reward/validation-tau curves are saved under
+`runs/ppo_gate/`.
+
+Rewards follow the requested dense placement reward, override penalty, and
+terminal tau improvement. Always following native has exactly zero terminal
+improvement reward; its full episode return still includes dense rewards.
+Tests verify this distinction, exact native retention, automatic placements,
+ground-truth-free observations, override rewards, and GAE boundaries.
+
+Each page's GAT output is held out of its own GAT fitting and model selection.
+However, the original GAT folds overlap in their training data: this second
+PPO split is conditional on the frozen OOF experiment, not a fully nested
+independent end-to-end test. In particular, GAT fits producing PPO-training
+features can include labels of pages subsequently assigned to PPO-test.
+
+The three-seed run completed in `237.81` seconds after cache recovery, with
+200,704 decision steps per seed. On the common 345-page PPO-test split, native
+tau is `0.867968`, raw GAT (fixed prior 4.0) is `0.872964`, and the gate tuned
+on PPO-validation is `0.891667` (T_pair=0.65, T_page=3). PPO's selected policies
+average `0.870033 +/- 0.002920` across seeds, with native-correct tau
+`0.996323 +/- 0.005200`; the acceptance rule therefore reports **PPO rejected**.
+The mean-seed PPO-minus-gated difference is `-0.021634`, paired-bootstrap
+95% CI `[-0.030248, -0.013766]`, sign-flip p=`0.000100`.
+
+Validation selection included the initial policy checkpoint. Seed 1337 selects
+step 40,960 and exactly retains native on the test pages. Seeds 4242 and 90210
+select step-zero checkpoints because PPO training never improves their
+validation selection scores. Thus the small aggregate gain over native is
+not evidence of learned PPO improvement. The report records selected steps
+and this limitation explicitly; the existing gated decoder remains the
+stronger result from this experiment.
