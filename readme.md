@@ -493,3 +493,41 @@ the 96-line input cap. Block tau, all per-seed/per-layout metrics, exclusions,
 and checkpoint hashes are in the reports. The final cached-OCR inference
 and reporting invocation took about 52 seconds; this excludes earlier OCR
 and network downloads. All 50 tests pass. No real-data fitting was performed.
+
+### Stratified real-data analysis and cap audit
+
+```powershell
+python scripts/evaluate_omnidocbench.py --cached-ocr-only --max-lines 0 --output runs/real_check/stratified/uncapped_inference
+python scripts/stratify_real_check.py
+```
+
+The original 96-line setting truncates **every method**, including Native and
+the XY-cut control, before scoring aligned text. It is a pipeline/training-size
+constant, not an architecture limit. An inference-only all-lines run (maximum
+213 OCR lines) preserves all checkpoints, thresholds, normalizers and original
+results; no OCR, training, tuning or selection is repeated. It scores all 150
+pages: Native `0.976384`, XY-cut `0.956493`, raw GAT `0.949155`, gated GAT
+`0.951870`, sequential PPO v2 seed mean `0.956465`, page-level PPO seed mean
+`0.972972`. Larger graphs do not close the gap. A third comparison restricts
+the larger-graph predictions to the original 149 pages' scoring lines, so
+expanded coverage is not confused with a same-support gain.
+
+`runs/real_check/stratified/` contains per-page CSV/JSON tables (including
+explicit exclusions), complete bootstrap stratum tables, switched-page
+diagnostics, nine plots, `report.md` and `report.json`. Strata use annotation
+layout, pre-cap line count, native correctness, and native/XY-cut agreement;
+no learned outputs define groups. Native-wrong is a ground-truth-conditioned
+diagnostic, not a deployable gate. XY-cut is the control. Three PPO seeds are
+averaged within page before the fixed-seed 10,000-resample paired bootstrap;
+actual per-seed switch counts are also shown.
+
+Native error rate is `22.82%` on original capped scoring versus `25.33%` on
+all-lines scoring, `32.50%` on the original 560-page GAT training split, and
+`43.39%` on the pooled 2,300-page OOF corpus. The report also isolates the PPO
+training split (native error rate `43.73%`) and each synthetic corpus. These are descriptive distribution
+comparisons with different template mixes and alignment/input filtering.
+Gated GAT worsens 79/115 native-correct pages in the original scoring;
+seed-mean page PPO worsens 9/115. Harm persists in both line-count groups.
+All 55 tests pass, including paired-bootstrap toy cases and GAT inference on
+more than 96 nodes. The all-lines frozen inference took 89 seconds; the
+saved-prediction analysis and plots take about 25-36 seconds on this CPU.

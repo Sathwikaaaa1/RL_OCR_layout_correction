@@ -74,11 +74,15 @@ def main():
     parser.add_argument("--thresholds", type=Path, default=Path("runs/ppo_gate/thresholds.json"))
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--ocr-only", action="store_true", help="Cache OCR for currently downloaded images, then stop (no partial-set scores).")
+    parser.add_argument("--cached-ocr-only", action="store_true", help="Require saved OCR; never launch OCR workers.")
+    parser.add_argument("--max-lines", type=int, default=None, help="Override pipeline cap; 0 uses every cached OCR line. Default keeps checkpoint training cap.")
     parser.add_argument("--tesseract-cmd", default=os.environ.get("TESSERACT_CMD") or shutil.which("tesseract"))
     args = parser.parse_args()
     if args.workers < 1:
         parser.error("--workers must be positive")
-    if not args.tesseract_cmd or not Path(args.tesseract_cmd).is_file():
+    if args.max_lines is not None and args.max_lines < 0:
+        parser.error("--max-lines must be nonnegative")
+    if not args.cached_ocr_only and (not args.tesseract_cmd or not Path(args.tesseract_cmd).is_file()):
         parser.error("Install Tesseract with English data and set TESSERACT_CMD (or --tesseract-cmd) to its executable.")
     started = time.perf_counter()
     torch.set_num_threads(1)
@@ -91,9 +95,14 @@ def main():
         raise RuntimeError(f"{len(missing)} images missing; resume prepare_omnidocbench.py first.")
     print(f"CPU estimate: approximately 3-12 minutes for {len(manifest['pages'])} pages with {args.workers} OCR workers; cached OCR is skipped. No training or tuning.", flush=True)
     jobs = [(args.root,row,args.tesseract_cmd) for row in manifest["pages"] if (args.root/row["image_path"]).is_file()]
-    with ProcessPoolExecutor(max_workers=args.workers) as pool:
-        for index, (page_id,seconds) in enumerate(pool.map(ocr_one,jobs)):
-            print(f"OCR {index+1}/{len(jobs)} {page_id}: {seconds:.2f}s", flush=True)
+    if args.cached_ocr_only:
+        missing_ocr = [row["page_id"] for _,row,_ in jobs if not (args.root/"ocr"/f"{row['page_id']}.json").is_file()]
+        if missing_ocr:
+            raise RuntimeError(f"Missing saved OCR: {missing_ocr}")
+    else:
+        with ProcessPoolExecutor(max_workers=args.workers) as pool:
+            for index, (page_id,seconds) in enumerate(pool.map(ocr_one,jobs)):
+                print(f"OCR {index+1}/{len(jobs)} {page_id}: {seconds:.2f}s", flush=True)
     if args.ocr_only:
         print(f"OCR cached for {len(jobs)} available pages; {len(missing)} images still missing. No partial-set evaluation.",flush=True)
         return
@@ -101,7 +110,8 @@ def main():
     model = PairwiseOrderModel(hidden_dim=checkpoint["args"]["hidden_dim"])
     model.load_state_dict(checkpoint["model"])
     model.eval()
-    limit = checkpoint["args"]["max_lines"]
+    training_limit = checkpoint["args"]["max_lines"]
+    evaluation_limit = training_limit if args.max_lines is None else args.max_lines
     thresholds = read(args.thresholds)
     pair, page_threshold = thresholds["pair_threshold"], thresholds["page_threshold"]
     policies = {}
@@ -124,12 +134,14 @@ def main():
     for selected in manifest["pages"]:
         source = annotations[selected["annotation_index"]]
         all_lines = read(args.root / "ocr" / f"{selected['page_id']}.json")["lines"]
+        limit = evaluation_limit or max(1,len(all_lines))
         # Keep the deployment cap and ALL OCR lines, not GT-filtered input.
         lines = all_lines[:limit]
         with Image.open(args.root / selected["image_path"]) as image:
             size = image.size
         alignment = align_text(lines, source, size)
-        write_json(args.root / "aligned" / f"{selected['page_id']}.json", alignment)
+        alignment_root = args.root/"aligned" if args.max_lines is None else args.output/"aligned"
+        write_json(alignment_root / f"{selected['page_id']}.json", alignment)
         if alignment["scored_lines"] < 3 or alignment["matched_blocks"] < 3:
             excluded.append({**selected, "alignment": alignment, "reason": "fewer than 3 unambiguous aligned lines or text blocks within deployment cap"})
             continue
@@ -204,9 +216,12 @@ def main():
     provenance = {"dataset_revision":manifest["revision"],"manifest_sha256":hashlib.sha256((args.root/"selected_pages.json").read_bytes()).hexdigest(),
                   "checkpoint":str(args.checkpoint),"checkpoint_sha256":hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),
                   "annotation_sha256":hashlib.sha256((args.root/"OmniDocBench.json").read_bytes()).hexdigest(),
-                  "native_prior":4.0,"thresholds":thresholds,"max_lines":limit,
+                  "native_prior":4.0,"thresholds":thresholds,"max_lines":evaluation_limit,"training_max_lines":training_limit,
                   "page_policies":{str(seed):{"path":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"kind":saved["kind"]} for seed,(_,saved,path) in policies.items()}}
     provenance["sequential_policies"] = {str(seed):{"path":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest()} for seed,(_,path) in sequential_policies.items()}
+    if evaluation_limit != training_limit:
+        protocol = protocol.replace("up to the saved 96-line deployment cap", "using every cached OCR line" if evaluation_limit == 0 else f"up to an inference-only {evaluation_limit}-line pipeline cap")
+        protocol += " The graph and policy architectures are unchanged; larger graphs are an out-of-training-size diagnostic, not a tuned replacement. Original capped results are preserved."
     report = {"protocol":protocol,"provenance":provenance,"selected_pages":len(manifest["pages"]),"scored_pages":len(rows),
               "native_correct_pages":sum(abs(row["tau"]["Native"]-1) <= 1e-9 for row in rows),
               "native_wrong_pages":sum(abs(row["tau"]["Native"]-1) > 1e-9 for row in rows),
