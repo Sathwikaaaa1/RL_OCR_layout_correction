@@ -12,6 +12,7 @@ from torch import nn
 from torch.distributions import Categorical
 
 from rlocr.ppo import PPOConfig
+from rlocr.order_actions import ACTION_NAMES
 
 
 OBSERVATION_NAMES = (
@@ -39,6 +40,8 @@ class OverrideNativeEnv(gym.Env):
     GAT proposes the highest remaining canonical page score (prior=4).
     Ground truth is consulted only for reward and reported metrics.
     """
+
+    action_names = ACTION_NAMES
 
     def __init__(self, page: dict[str, Any]) -> None:
         super().__init__()
@@ -113,7 +116,7 @@ class OverrideNativeEnv(gym.Env):
         if self.finished:
             raise RuntimeError("Episode already complete; reset before stepping")
         if not self.action_space.contains(action):
-            raise ValueError("Action must be 0 (native) or 1 (GAT)")
+            raise ValueError("Action must be RETAIN (0) or REORDER (1)")
         native, gat = self._proposals()
         self.disagreements += 1
         self.overrides += int(action)
@@ -152,12 +155,14 @@ def gae(rewards, dones, values, bootstrap, config: PPOConfig):
     return advantages, advantages + values
 
 
-def ppo_update(model, optimizer, observations, actions, old_log_probs, advantages, returns, config, generator):
+def ppo_update(model, optimizer, observations, actions, old_log_probs, advantages, returns, config, generator, action_masks=None):
     advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
     losses = []
     for _ in range(config.epochs):
         for indices in torch.randperm(len(actions), generator=generator).split(256):
             logits, values = model(observations[indices])
+            if action_masks is not None:
+                logits = logits.masked_fill(~action_masks[indices], -1e9)
             distribution = Categorical(logits=logits)
             ratio = (distribution.log_prob(actions[indices]) - old_log_probs[indices]).exp()
             policy_loss = -torch.minimum(ratio * advantages[indices], ratio.clamp(1-config.clip_ratio, 1+config.clip_ratio) * advantages[indices]).mean()

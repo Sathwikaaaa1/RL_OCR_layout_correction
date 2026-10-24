@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from rlocr.common import write_json
 from rlocr.gated_decoder import paired_significance
 from rlocr.ppo import PPOConfig
+from rlocr.order_actions import ACTION_NAMES
 from rlocr.ppo_gate import OverrideActorCritic, index_tau, ppo_update
 from rlocr.ppo_page_gate import PAGE_FEATURE_NAMES, page_gate_features
 from train_ppo_gate import across_seed_summary
@@ -128,6 +129,7 @@ def summarize(rows):
 
 
 def write_report(report, output):
+    report["action_names"] = ACTION_NAMES
     lines = ["# Page-level PPO gate", "", report["outcome"], "", report["methodology"], "",
              "## Mean +/- population std across seeds", "", "| Method | Mean tau | Native-correct | Native-wrong | Pages switched | Better | Worse | Same |",
              "|---|---:|---:|---:|---:|---:|---:|---:|"]

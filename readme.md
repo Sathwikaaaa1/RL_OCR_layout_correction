@@ -394,3 +394,57 @@ checkpoint selections, histories, feature normalization, and provenance are
 saved in `runs/ppo_page_gate/report.md` and `report.json`. These results remain
 conditional on the reused frozen OOF experiment and its overlapping original
 GAT training folds.
+
+## Frozen-GAT RETAIN/REORDER policy and structural-label audit
+
+Binary ordering actions now use the names **RETAIN = 0** and **REORDER = 1**.
+This naming change preserves numeric IDs, old network defaults, and checkpoint
+tensor layouts. RETAIN takes native's next unplaced line; REORDER takes the
+GAT proposal (or the full gated order in the separate page-level environment).
+The older four-action structural prototype retains its separate action schema.
+
+```powershell
+python scripts/cache_gat_embeddings.py
+python scripts/train_frozen_gat_policy.py --benchmark-only
+python scripts/train_frozen_gat_policy.py --steps 200000
+python scripts/audit_merge_split.py
+```
+
+The encoder cache extracts each page's 32-dimensional node embeddings and
+mean-pooled graph embedding using its saved held-out GAT fold, verifies fold
+membership and checkpoint hashes, and aligns embeddings to cached OCR lines.
+No GAT training occurs. A new 104-dimensional observation concatenates two
+candidate embeddings, the pooled embedding, four page lookahead features,
+placed fraction, and the last decision (none/RETAIN/REORDER). Only a 2x64 MLP
+head trains, with train-only embedding/feature standardization. The exact
+previous PPO-train/val/test splits are reused.
+
+Reward remains terminal `20 * (tau - native_tau)` minus `0.005` per REORDER
+attempt, with an extra `0.05` penalty for invalid edits. Placed lines are
+masked. A REORDER skipping more than one OCR-inferred column, while native
+stays in the current column, is rejected and executes RETAIN to ensure
+progress. This is a combined embedding-and-validity-rule experiment, not a
+pure encoder ablation. The report includes the complete state/actions/reward/
+episode summary, masking rules, invalid counts, and a constrained greedy
+per-decision oracle.
+
+The six-run experiment completed in `403.66` seconds (6.73 minutes), with
+200,704 steps per run. Test tau is PPO v2 `0.881485 +/- 0.000264`, frozen-GAT
+scratch `0.880866 +/- 0.000173`, and frozen-GAT imitation-start
+`0.880373 +/- 0.000319`. Imitation-start minus PPO v2 is `-0.001112`, paired
+95% CI `[-0.002351, 0.000036]`, sign-flip p=`0.071393`. **GAT-policy PPO did
+not improve**, so PPO v2 remains the main sequential-policy result. The
+separate page-level PPO result remains available. Full metrics, per-seed
+selections, cached embeddings, paired tests, and RETAIN/REORDER plots are in
+`runs/ppo_gat_policy/`.
+
+The read-only audit of all 2,300 full aligned pages found 75,670 merge-label
+pairs, positive merge labels on every page, and 7,921 split-flagged lines on
+1,798 pages. A minimal adjacent-native-line MERGE action is feasible: 73,678
+positive pairs (97.37%) are directly adjacent in native order. The audit
+defines eligible-pair merge F1, a cross-column penalty, and the necessary
+always-MERGE baseline. These labels also cover ordinary paragraph line
+aggregation and overlap-based ambiguity, so counts must not be presented as
+verified OCR fragmentation/gluing defects. No MERGE or SPLIT action was
+implemented. Findings and per-template counts are saved under
+`runs/merge_split_audit/`.

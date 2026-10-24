@@ -22,6 +22,7 @@ from rlocr.gat_data import load_gat_record
 from rlocr.gat_inference import infer_gat
 from rlocr.gated_decoder import gated_order, paired_significance
 from rlocr.model import PairwiseOrderModel
+from rlocr.order_actions import ACTION_NAMES
 from rlocr.order_features import pair_probability_scores
 from rlocr.ppo import PPOConfig
 from rlocr.ppo_gate import OBSERVATION_NAMES, OverrideActorCritic, OverrideNativeEnv, gae, index_tau, ppo_update
@@ -185,11 +186,16 @@ class Rollout:
 
     def collect(self, model, horizon, config):
         observations, actions, log_probs, values, rewards, dones = [], [], [], [], [], []
+        action_masks = []
         completed = []
         for _ in range(horizon):
             state = torch.from_numpy(np.asarray(self.observations))
             with torch.no_grad():
                 logits, value = model(state)
+                if hasattr(self.envs[0], "action_masks"):
+                    mask = torch.from_numpy(np.asarray([env.action_masks() for env in self.envs]))
+                    logits = logits.masked_fill(~mask, -1e9)
+                    action_masks.append(mask)
                 distribution = Categorical(logits=logits)
                 action = distribution.sample()
                 log_prob = distribution.log_prob(action)
@@ -211,6 +217,7 @@ class Rollout:
         with torch.no_grad():
             _, bootstrap = model(torch.from_numpy(np.asarray(self.observations)))
         advantages, returns = gae(torch.stack(rewards), torch.stack(dones), torch.stack(values), bootstrap, config)
+        self.last_action_masks = torch.cat(action_masks) if action_masks else None
         return (torch.cat(observations), torch.cat(actions), torch.cat(log_probs), advantages.flatten(), returns.flatten()), completed
 
 
@@ -283,6 +290,7 @@ def across_seed_summary(values):
 
 
 def write_reports(report, output):
+    report["action_names"] = ACTION_NAMES
     lines = ["# PPO override gate", "", report["acceptance_message"], "", report["methodology"], "",
              "| Seed | Method | Mean tau | Native-correct | Native-wrong | Changed | Better | Worse | Same |",
              "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
@@ -315,7 +323,7 @@ def write_reports(report, output):
     lines += ["", "## Validation-selected settings", "", "```json", json.dumps(report["thresholds"], indent=2), "```", "",
               "## Curves", "", "![Reward and tau against steps](training_curves.png)", "",
               "Mean-seed significance first averages PPO tau across seeds per test page, then resamples pages. It does not treat 3 x test pages as independent. Intervals condition on fitted models.", "",
-              "Always-native has zero terminal tau-improvement reward. Its full return includes dense rewards, as specified. Automatic placements also receive dense rewards and use no policy steps.", ""]
+              "Always RETAIN has zero terminal tau-improvement reward. Its full return includes dense rewards, as specified. Automatic placements also receive dense rewards and use no policy steps.", ""]
     write_json(output / "report.json", report)
     (output / "report.md").write_text("\n".join(lines), encoding="utf-8")
 

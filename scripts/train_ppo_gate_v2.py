@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from rlocr.common import write_json
 from rlocr.gated_decoder import gated_order, paired_significance
 from rlocr.ppo import PPOConfig
+from rlocr.order_actions import ACTION_NAMES
 from rlocr.ppo_gate import OverrideActorCritic, OverrideNativeEnv, index_tau, ppo_update
 from rlocr.ppo_gate_v2 import (V2_OBSERVATION_NAMES, OverrideNativeV2Env, fit_imitation,
                                gated_teacher_action, lookahead_features, reachable_tau_oracle)
@@ -252,6 +253,7 @@ def training(seed, mode, initial, splits, args, benchmark=False):
 
 
 def write_report(report, output):
+    report["action_names"] = ACTION_NAMES
     cutoff = report["across_seeds"]["gated_gat"]["mean_tau"]["mean"] - 0.002
     ceiling = report["exact_reachable_ceiling"]["mean_tau"]
     report["action_space_limit"] = {"exact_reachable_ceiling": ceiling, "acceptance_tau_cutoff": cutoff,
@@ -294,11 +296,13 @@ def write_report(report, output):
     (output / "report.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def curves(histories, output):
+def curves(histories, output, title=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    if title:
+        fig.suptitle(title)
     for name, history in histories.items():
         rewards = [row for row in history if row["reward"] is not None]
         axes[0].plot([row["steps"] for row in rewards], [row["reward"] for row in rewards], label=name)

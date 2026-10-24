@@ -7,6 +7,7 @@ from typing import Any
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+from rlocr.order_actions import ACTION_NAMES
 
 from rlocr.ppo_gate import index_tau
 
@@ -42,6 +43,8 @@ def page_gate_features(page: dict[str, Any], pair_threshold: float) -> np.ndarra
 class PageGateEnv(gym.Env):
     """One page, one action, one terminal improvement reward."""
 
+    action_names = ACTION_NAMES
+
     def __init__(self, page: dict[str, Any], pair_threshold: float = 0.65) -> None:
         super().__init__()
         self.page = page
@@ -59,7 +62,7 @@ class PageGateEnv(gym.Env):
         if self.finished:
             raise RuntimeError("Reset before starting another page episode")
         if not self.action_space.contains(action):
-            raise ValueError("Action must be 0 (native) or 1 (gated decoder)")
+            raise ValueError("Action must be RETAIN (0) or REORDER (1, full gated order)")
         self.order = list(self.page["gated"] if action else self.page["native"])
         tau = index_tau(self.order, self.page["gt_rank"])
         reward = tau - self.page["native_tau"]

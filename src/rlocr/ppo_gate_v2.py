@@ -51,7 +51,7 @@ class OverrideNativeV2Env(OverrideNativeEnv):
         if self.finished:
             raise RuntimeError("Reset a completed episode")
         if not self.action_space.contains(action):
-            raise ValueError("Action must be 0 or 1")
+            raise ValueError("Action must be RETAIN (0) or REORDER (1)")
         native, gat = self._proposals()
         self.disagreements += 1
         self.overrides += int(action)
