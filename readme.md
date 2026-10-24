@@ -448,3 +448,48 @@ aggregation and overlap-based ambiguity, so counts must not be presented as
 verified OCR fragmentation/gluing defects. No MERGE or SPLIT action was
 implemented. Findings and per-template counts are saved under
 `runs/merge_split_audit/`.
+
+## Small OmniDocBench real-data check (no training)
+
+```powershell
+python -m pip install -r requirements.txt
+# Set TESSERACT_CMD to your existing Tesseract executable if it is not on PATH.
+python scripts/prepare_omnidocbench.py
+python scripts/evaluate_omnidocbench.py --workers 4
+```
+
+The downloader uses `huggingface_hub` with a pinned dataset revision and fetches
+only the 42.21 MB annotation JSON and at most 150 explicitly selected images.
+It never clones the dataset or downloads the whole images folder. The seeded
+English subset contains 57 double-column, 32 three-column, and 61 mixed-column
+pages, each with at least three ordered nonignored text blocks. No explicit
+sidebar labels are available. `data/omnidocbench/selected_pages.json` records
+the allowlist, attributes, sizes, seed and dataset revision. Downloads resume
+without refetching completed images, target 200 MB including annotations,
+and stop before reaching the 300 MB hard limit. Unicode filenames work on
+Windows. All dataset files and caches remain ignored by Git.
+
+Evaluation caches parallel English Tesseract OCR and runs the saved full
+native-aware GAT (prior 4.0), fixed synthetic-validation gate, and all three
+saved sequential PPO v2 and page-level PPO policies, without training,
+real-data tuning, or real-data checkpoint selection. Native and XY-cut are
+the baselines. Reports are `runs/omnidocbench/report.md` and `report.json`.
+The existing synthetic checkpoints must be available locally. During a slow
+download, `evaluate_omnidocbench.py --ocr-only` may cache available images
+without producing partial-subset scores. See [the evaluation protocol](docs/real_data_protocol.md)
+for alignment, coverage, the 96-line deployment cap, and metric limitations.
+
+The completed subset occupies **185.01 MB** including OCR/alignment caches.
+Of 150 selected pages, 149 are scoreable and one has insufficient aligned
+blocks within the deployment cap. Mean line tau: Native `0.976917`, XY-cut
+`0.936602`, raw GAT `0.951276`, gated GAT `0.952759`, sequential PPO v2
+`0.958138 +/- 0.000666`, page-level PPO `0.972937 +/- 0.000405` (three seeds).
+Page-level PPO minus native is `-0.003979`, paired 95% CI
+`[-0.009896, 0.000577]`, sign-flip p=`0.131587`: **no demonstrated real-data
+improvement over native**. Gated GAT is significantly worse than native
+(`-0.024158`, CI `[-0.031328, -0.017788]`). These conditional application
+scores cover 9,839 of 12,082 input OCR lines on scored pages; 65 pages exceed
+the 96-line input cap. Block tau, all per-seed/per-layout metrics, exclusions,
+and checkpoint hashes are in the reports. The final cached-OCR inference
+and reporting invocation took about 52 seconds; this excludes earlier OCR
+and network downloads. All 50 tests pass. No real-data fitting was performed.

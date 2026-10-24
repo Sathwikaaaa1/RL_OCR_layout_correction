@@ -13,3 +13,4 @@ gymnasium==1.0.0
 torch==2.5.1
 scipy==1.14.1
 scikit-learn==1.5.2
+huggingface_hub==0.36.0
