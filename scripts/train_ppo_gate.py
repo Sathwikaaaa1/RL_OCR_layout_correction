@@ -161,10 +161,11 @@ def baseline_rows(pages, thresholds):
 
 
 class Rollout:
-    def __init__(self, pages, seed, count=16):
+    def __init__(self, pages, seed, count=16, env_class=OverrideNativeEnv):
         self.pages = pages
         self.rng = np.random.default_rng(seed)
         self.count = count
+        self.env_class = env_class
         self.envs = []
         self.observations = []
         # Pages with no proposal disagreement have no trainable actions.
@@ -178,7 +179,7 @@ class Rollout:
 
     def new_episode(self):
         page = self.decision_pages[int(self.rng.integers(len(self.decision_pages)))]
-        env = OverrideNativeEnv(page)
+        env = self.env_class(page)
         observation, _ = env.reset()
         return env, observation
 

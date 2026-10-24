@@ -128,9 +128,9 @@ class OverrideNativeEnv(gym.Env):
 
 
 class OverrideActorCritic(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, input_dim: int = len(OBSERVATION_NAMES)) -> None:
         super().__init__()
-        self.body = nn.Sequential(nn.Linear(len(OBSERVATION_NAMES), 64), nn.Tanh(), nn.Linear(64, 64), nn.Tanh())
+        self.body = nn.Sequential(nn.Linear(input_dim, 64), nn.Tanh(), nn.Linear(64, 64), nn.Tanh())
         self.actor = nn.Linear(64, 2)
         self.critic = nn.Linear(64, 1)
 

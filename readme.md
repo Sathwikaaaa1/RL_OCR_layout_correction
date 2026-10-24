@@ -307,3 +307,59 @@ validation selection scores. Thus the small aggregate gain over native is
 not evidence of learned PPO improvement. The report records selected steps
 and this limitation explicitly; the existing gated decoder remains the
 stronger result from this experiment.
+
+## Final PPO override attempt (v2)
+
+```powershell
+python scripts/train_ppo_gate_v2.py --diagnostics-only
+python scripts/train_ppo_gate_v2.py --steps 200000 --seeds 1337 4242 90210
+```
+
+This reuses `runs/ppo_gate/oof_probabilities.pt`, its exact saved page splits,
+and its validation-selected gate thresholds. It performs no GAT inference or
+retraining. Reports are saved under `runs/ppo_gate_v2/`, including
+`diagnostics.md`, `diagnostics.json`, `report.md`, `report.json`, teacher
+decision logs, imitation checkpoints, fine-tuned/scratch checkpoints, and
+training curves. The script benchmarks CPU throughput and prints a time
+estimate before imitation and full PPO training.
+
+The observation keeps the previous 13 features and adds four precomputed page
+features: confident native/GAT pair disagreement count (`log1p(count)/5`),
+maximum opposite-direction probability margin above 0.5, GAT/native order
+tau, and native/XY-cut tau. Reward is now only `-0.005` per override plus
+terminal `20 * (predicted_tau - native_tau)`. PPO uses normalized advantages,
+learning rate `5e-5`, clipping `0.1`, and entropy coefficient `0.01`.
+Imitation fits plain cross-entropy on gated-teacher choices from PPO-train
+pages for 30 fixed epochs. Each of three seeds runs PPO from imitation and
+from scratch; validation tau selects checkpoints, breaking ties by fewer
+overrides. Fine-tuning can retain imitation; scratch selects trained
+checkpoints only. The new acceptance rule compares fine-tuned mean-seed tau
+against gated tau minus 0.002 and native-correct tau against gated
+native-correct tau minus 0.001.
+
+Diagnostics expose an action-space limitation: full pairwise-gated orders
+can choose a next line that neither binary proposal offers. Teacher labels
+therefore project the full gated order by choosing the earlier-ranked
+available proposal, and the report explicitly measures that projection gap.
+On the native-following PPO-test trajectory, 17.88% of decision points have
+a correct GAT proposal, 77.29% a correct native proposal, and 4.84% neither.
+The requested greedy per-decision oracle scores `0.885505`; it is not a
+global tau ceiling. An exact dynamic program over unions of native/GAT
+prefixes finds the actual best reachable tau `0.889527`. This is below the
+mean-tau acceptance cutoff `0.889667` on these fixed test pages, so even a
+perfect binary policy cannot meet that requirement. The full gated decoder
+scores `0.891667`; its projected teacher scores `0.879938`, with different
+orders on 94 of 345 test pages. These descriptive test diagnostics do not
+feed fitting, hyperparameter selection, or checkpoint selection.
+
+The completed v2 experiment took `532.21` seconds (8.87 minutes), including
+diagnostics and six PPO runs of 200,704 steps. Mean test tau across three
+seeds is imitation `0.879940 +/- 0.000005`, fine-tuned PPO
+`0.881485 +/- 0.000264`, and scratch PPO `0.881821 +/- 0.000209`. All three
+fine-tuned seeds select PPO-improved validation checkpoints over imitation.
+Fine-tuned native-correct tau is `0.999578 +/- 0.000094`, better than the
+gated decoder's `0.997336`, but overall tau remains below the acceptance
+threshold: **PPO rejected**. Fine-tuned minus gated tau is `-0.010182`, with
+paired-bootstrap 95% CI `[-0.016144, -0.004667]` and sign-flip p=`0.000600`.
+PPO now demonstrates learned gains over native (`+0.013517`), while the
+existing gated decoder remains the stronger overall method.
