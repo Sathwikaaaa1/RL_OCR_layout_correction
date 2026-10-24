@@ -363,3 +363,34 @@ threshold: **PPO rejected**. Fine-tuned minus gated tau is `-0.010182`, with
 paired-bootstrap 95% CI `[-0.016144, -0.004667]` and sign-flip p=`0.000600`.
 PPO now demonstrates learned gains over native (`+0.013517`), while the
 existing gated decoder remains the stronger overall method.
+
+## Page-level PPO selection over the full gated decoder
+
+```powershell
+python scripts/train_ppo_page_gate.py
+```
+
+This cheap contextual-bandit experiment chooses once per page: native order
+or the complete gated decoder order. It reuses the frozen probability cache,
+the exact previous PPO splits, and the same validation-tuned gate thresholds.
+Six OCR/model-only page features describe confident disagreement count and
+margin, gated/native and native/XY-cut tau, line count, and narrow edge-line
+fraction. Feature standardization is fitted on PPO-train only. Three fixed
+seeds train a small two-layer MLP with PPO; validation alone selects trained
+checkpoints, with always selecting gated order as an explicit fallback.
+
+The complete run took `68.81` seconds. All three seeds selected learned PPO
+checkpoints. On the same 345 test pages, native tau is `0.867968`, gated GAT
+is `0.891667`, best-of-page oracle is `0.896744`, and page-level PPO is
+`0.893463 +/- 0.000067`. The PPO-minus-gated improvement is `+0.001796`,
+paired-bootstrap 95% CI `[0.000757, 0.003027]`, sign-flip p=`0.000200`:
+**page-level PPO improved** under the specified CI rule. Native-correct tau
+improves from gated GAT's `0.997336` to `0.998887`; it is not perfect retention.
+PPO changes an average of 66.33 pages versus native, instead of gated GAT's
+114, retaining native on roughly 48 pages the gate would otherwise change.
+
+Full per-seed metrics, page predictions, 10,000-resample paired intervals,
+checkpoint selections, histories, feature normalization, and provenance are
+saved in `runs/ppo_page_gate/report.md` and `report.json`. These results remain
+conditional on the reused frozen OOF experiment and its overlapping original
+GAT training folds.
