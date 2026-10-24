@@ -1,0 +1,158 @@
+{
+  "stage_counts": {
+    "all_annotations": 1651,
+    "unseen": 1501,
+    "unseen_english": 605,
+    "excluded_previous_images": 150,
+    "allowed_document_type": 178,
+    "allowed_layout": 178,
+    "at_least_three_ordered_text_blocks": 169,
+    "qualifying_unique_pages": 3
+  },
+  "qualifying_count": 3,
+  "qualifying_document_counts": {
+    "magazine": 2,
+    "newspaper": 1,
+    "colorful_textbook": 0,
+    "research_report": 0
+  },
+  "qualifying_layout_counts": {
+    "single_column": 0,
+    "double_column": 0,
+    "three_column": 0,
+    "1andmore_column": 0,
+    "other_layout": 3
+  },
+  "qualifying_pages": [
+    {
+      "page_id": "omni_sidebar_0679",
+      "annotation_index": 679,
+      "image_path": "images/jiaocaineedrop_chap15.pdf_3.jpg",
+      "attributes": {
+        "data_source": "magazine",
+        "language": "english",
+        "layout": "other_layout",
+        "special_issue": [
+          "colorful_backgroud"
+        ],
+        "subset": "v1.5"
+      },
+      "sidebar_proxy": {
+        "sidebar_anno_id": 1,
+        "main_anno_id": 11,
+        "sidebar_bbox_normalized": [
+          0.7254963951660689,
+          0.45347638212105384,
+          0.9022607297907315,
+          0.5031585637927777
+        ],
+        "main_bbox_normalized": [
+          0.10623950958251954,
+          0.3434706545496834,
+          0.7014149475097657,
+          0.5577554321289063
+        ],
+        "sidebar_nonspace_characters": 56,
+        "main_nonspace_characters": 562,
+        "horizontal_gap": 0.024081447656303157,
+        "vertical_overlap_fraction_of_shorter": 1.0
+      }
+    },
+    {
+      "page_id": "omni_sidebar_1391",
+      "annotation_index": 1391,
+      "image_path": "images/newspaper_USAToday-2025-01-08@magazinesclubnew_page_012.png",
+      "attributes": {
+        "data_source": "newspaper",
+        "language": "english",
+        "layout": "other_layout",
+        "special_issue": [
+          "None"
+        ],
+        "subset": "v1.5"
+      },
+      "sidebar_proxy": {
+        "sidebar_anno_id": 5,
+        "main_anno_id": 19,
+        "sidebar_bbox_normalized": [
+          0.04363636363636364,
+          0.2456470588235294,
+          0.25333333333333335,
+          0.34541176470588236
+        ],
+        "main_bbox_normalized": [
+          0.28242424242424247,
+          0.2384313725490196,
+          0.7163636363636363,
+          0.29615686274509806
+        ],
+        "sidebar_nonspace_characters": 428,
+        "main_nonspace_characters": 518,
+        "horizontal_gap": 0.02909090909090911,
+        "vertical_overlap_fraction_of_shorter": 0.8750000000000001
+      }
+    },
+    {
+      "page_id": "omni_sidebar_1601",
+      "annotation_index": 1601,
+      "image_path": "images/magazine_TheEconomist.2023.11.25_page_093.png",
+      "attributes": {
+        "data_source": "magazine",
+        "language": "english",
+        "layout": "other_layout",
+        "special_issue": [
+          "None"
+        ],
+        "subset": "v1.5"
+      },
+      "sidebar_proxy": {
+        "sidebar_anno_id": 10,
+        "main_anno_id": 6,
+        "sidebar_bbox_normalized": [
+          0.6526461601168949,
+          0.6355197078070309,
+          0.9373333333333334,
+          0.7655861614163242
+        ],
+        "main_bbox_normalized": [
+          0.056,
+          0.6349109724547253,
+          0.6338666666666667,
+          0.7047126261857658
+        ],
+        "sidebar_nonspace_characters": 172,
+        "main_nonspace_characters": 336,
+        "horizontal_gap": 0.018779493450228224,
+        "vertical_overlap_fraction_of_shorter": 0.9912790697674408
+      }
+    }
+  ],
+  "selected_pages": [],
+  "seed": 20261024,
+  "target": 100,
+  "minimum_pool": 80,
+  "status": "stopped_insufficient_qualifying_pages",
+  "preregistration_commit": "f9949a4",
+  "model_inference_run": false,
+  "annotation_sha256": "a45cd84b04ad8b793e775089640e6b681209abea33ead54c1828ddca35fae496",
+  "previous_manifest_sha256": "5d5b8c9a5126f127053f5cdd7d0410df1d09b7b7a4c2a7acfec16cd7abe42c6c",
+  "all_document_counts": {
+    "book": 276,
+    "academic_literature": 215,
+    "note": 118,
+    "PPT2PDF": 253,
+    "colorful_textbook": 159,
+    "historical_document": 5,
+    "magazine": 149,
+    "exam_paper": 193,
+    "research_report": 132,
+    "newspaper": 151
+  },
+  "all_layout_counts": {
+    "single_column": 887,
+    "other_layout": 372,
+    "double_column": 184,
+    "1andmore_column": 155,
+    "three_column": 53
+  }
+}

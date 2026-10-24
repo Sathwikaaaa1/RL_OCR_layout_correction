@@ -563,3 +563,28 @@ synthetic improvement fractions are 76.1%-78.5% across seeds, versus
 12.5%-16.7% on real pages. Decision tables distinguish any tau improvement
 from full restoration to tau=1, report broken native-correct pages, and show
 both net improved-minus-worsened and net fully-fixed-minus-broken counts.
+
+### Final unseen sidebar real-data preregistration: selection stopped
+
+Preregistration was committed and pushed as `f9949a4` before geometric
+selection or any new-page download/OCR/inference. It fixes English language,
+four document types, a geometric narrow-edge-block/wide-main-block proxy,
+seed 20261024, a target of 100, and a minimum qualifying pool of 80. All
+earlier 150 images are excluded. The zero-margin primary comparison and
+frozen all-lines/capped evaluation plan are recorded in
+`runs/real_check_sidebar/preregistration.md`.
+
+```powershell
+python scripts/select_sidebar_real_check.py
+```
+
+Annotation-only selection found 1,501 unseen pages, 605 English pages, 178
+pages in the declared document types, and 169 with at least three ordered
+text blocks. **Only three pages match the preregistered geometric proxy:**
+two magazine and one newspaper page, all `other_layout`; none qualify from
+colorful textbooks or research reports. The run stopped as required, with
+no final sample, downloads, OCR, model inference, tuning or rule relaxation.
+`runs/real_check_sidebar/report.md`, `report.json` and `selection.json` save
+the count audit and geometric witnesses. These are selection feasibility
+findings, not model performance results. Explicit user direction is required
+before changing the rule or evaluating an undersized pool.
