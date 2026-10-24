@@ -230,3 +230,26 @@ It is not a mathematical upper bound for the pair-level gated decoder, which
 can construct a third hybrid order; this is why gated tau can exceed that
 diagnostic. Full tables, per-page predictions, fold checkpoints, selected
 thresholds, and the progress log are under `runs/gat_cross_validation/`.
+
+Diagnostics of these frozen out-of-fold predictions (no retraining):
+
+```powershell
+python scripts/diagnose_gated_gat.py
+```
+
+This saves `runs/diagnostics/report.md` and `report.json`, plus native/ground
+truth/gated order visualizations of the ten worst pages in
+`runs/viz_worse_pages/`. Statistics reuse the saved predictions; only the ten
+visualized orders are reconstructed from their frozen fold checkpoints and
+checked against the saved scores. Bootstrap uses 10,000 paired page resamples
+with seed 271828. Reweighted intervals hold template proportions fixed and
+resample within templates.
+
+Gating harms 158 of 1,302 native-correct pages, with mean loss `0.013105`
+conditional on changing them; 156 of those pages are two- or three-column.
+All five folds improve. Mean gated-minus-native tau is `+0.010959` on the old
+800-page corpus (95% CI `[0.006708, 0.015562]`) and `+0.034376` on the new
+1,500-page corpus (`[0.029292, 0.039770]`). With equal template weights, the
+gain is `+0.007922` (`[0.006700, 0.009149]`); matching the old template mix
+gives `+0.013941` (`[0.011795, 0.016123]`). These intervals condition on the
+saved models; they do not capture retraining uncertainty.
