@@ -531,3 +531,35 @@ seed-mean page PPO worsens 9/115. Harm persists in both line-count groups.
 All 55 tests pass, including paired-bootstrap toy cases and GAT inference on
 more than 96 nodes. The all-lines frozen inference took 89 seconds; the
 saved-prediction analysis and plots take about 25-36 seconds on this CPU.
+
+### PPO template analysis and synthetic-to-real decision quality
+
+```powershell
+python scripts/analyze_ppo_policies.py
+```
+
+This saved-prediction-only analysis takes about 6 seconds, with no training,
+tuning, OCR or inference. Outputs are `runs/ppo_analysis/report.md`,
+`report.json` and `analysis_plan.json`. It verifies the identical 345-page
+synthetic PPO-test split and shared baselines, reports every observed template
+and each PPO seed plus the within-page seed mean, and uses 10,000 paired page
+bootstrap resamples and two-sided sign flips with seed 314159. Template
+p-values receive Holm correction separately per method/reference family.
+The two policy-family primary tests and two secondary tests also receive
+their own Holm corrections. This is a pre-specified **retrospective** analysis
+of already inspected data, not a new independent confirmatory holdout.
+
+Primary comparison (143 synthetic sidebar pages), PPO minus native:
+sequential PPO v2 `+0.034157`, CI `[0.023552, 0.045481]`; page-level PPO
+`+0.061586`, CI `[0.040602, 0.084181]`. Secondary comparison (all 345 synthetic
+test pages), PPO minus gated GAT: sequential `-0.010182`, CI
+`[-0.016144, -0.004667]`; page-level `+0.001796`, CI
+`[0.000757, 0.003027]`. Per-seed rows and other template cells are exploratory.
+
+Exploratory real all-lines comparisons against gated GAT: sequential PPO
+`+0.004595`, CI `[0.002575, 0.006856]`; page-level PPO `+0.021102`, CI
+`[0.017035, 0.025847]`. Neither beats native. Among actual page-policy switches,
+synthetic improvement fractions are 76.1%-78.5% across seeds, versus
+12.5%-16.7% on real pages. Decision tables distinguish any tau improvement
+from full restoration to tau=1, report broken native-correct pages, and show
+both net improved-minus-worsened and net fully-fixed-minus-broken counts.
