@@ -588,3 +588,37 @@ no final sample, downloads, OCR, model inference, tuning or rule relaxation.
 the count audit and geometric witnesses. These are selection feasibility
 findings, not model performance results. Explicit user direction is required
 before changing the rule or evaluating an undersized pool.
+
+### User-authorized three-page exploratory follow-up
+
+After the minimum-pool stop, the user explicitly authorized evaluating the
+three unseen candidates and comparing with earlier pages of the same types.
+This follow-up does **not** replace or count as the preregistered 80-100-page
+final evaluation. The preregistration and stop reports remain unchanged.
+
+```powershell
+python scripts/evaluate_sidebar_followup.py --prepare
+python scripts/evaluate_omnidocbench.py --root data/omnidocbench_sidebar_followup --annotations data/omnidocbench/OmniDocBench.json --max-lines 0 --output runs/real_check_sidebar/followup/new_inference --workers 3
+python scripts/evaluate_sidebar_followup.py
+```
+
+Set `TESSERACT_CMD` if necessary. Only three images are downloaded; the
+annotation JSON is shared without copying. All-lines OCR/inference took 56
+seconds, including a 424-line newspaper page, with unchanged checkpoints,
+gate thresholds, prior and normalizers. No model was fitted or tuned.
+
+Mean tau on the three unseen pages: Native `0.964912`, XY-cut `0.964905`,
+raw GAT `0.896730`, gated GAT `0.871477`, sequential PPO v2 three-seed mean
+`0.893430`, page-level PPO mean `0.915569`. Page-level PPO minus native is
+`-0.049343`, paired 95% CI `[-0.140351, 0.000000]`; no superiority or
+zero-margin noninferiority is demonstrated by this tiny sample.
+
+The seen comparison reuses all 34 earlier magazine/newspaper pages (12/22),
+not a score-selected subset: Native and page-level PPO both `0.981516`,
+XY-cut `0.958153`, raw GAT `0.964551`, gated GAT `0.972370`, sequential PPO
+`0.973412`. None of these 34 seen pages satisfy the frozen sidebar proxy,
+so this is a document-type comparison, not a matched sidebar-style cohort.
+Separate new, seen and explicitly exploratory combined results, per-type
+and per-page scores, individual seeds, CIs and switch diagnostics are saved
+under `runs/real_check_sidebar/followup/` in `report.md`, `report.json` and
+`per_page.csv`. All 61 tests pass.

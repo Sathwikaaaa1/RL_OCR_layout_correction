@@ -70,6 +70,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("data/omnidocbench"))
     parser.add_argument("--output", type=Path, default=Path("runs/omnidocbench"))
+    parser.add_argument("--annotations", type=Path, default=None, help="Shared annotation JSON; avoids copying it into a new subset root.")
     parser.add_argument("--checkpoint", type=Path, default=Path("runs/native_aware_gat_full.pt"))
     parser.add_argument("--thresholds", type=Path, default=Path("runs/ppo_gate/thresholds.json"))
     parser.add_argument("--workers", type=int, default=4)
@@ -89,7 +90,8 @@ def main():
     torch.manual_seed(1337)
     torch.use_deterministic_algorithms(True)
     manifest = read(args.root / "selected_pages.json")
-    annotations = read(args.root / "OmniDocBench.json")
+    annotation_path = args.annotations or args.root / "OmniDocBench.json"
+    annotations = read(annotation_path)
     missing = [row["image_path"] for row in manifest["pages"] if not (args.root / row["image_path"]).is_file()]
     if missing and not args.ocr_only:
         raise RuntimeError(f"{len(missing)} images missing; resume prepare_omnidocbench.py first.")
@@ -215,7 +217,7 @@ def main():
     protocol = ("Inference only; fixed full synthetic GAT checkpoint, native prior 4.0; gate thresholds and PPO checkpoints/normalizers selected on synthetic validation only. All 3 saved PPO seeds evaluated, no seed selected on real pages. Inputs use all OCR lines up to the saved 96-line deployment cap, without GT filtering. Metrics use only confidently aligned, unambiguous ordered text lines (>=50% line-area overlap; exclude >=15% overlap with multiple blocks and tied block ranks). At least 3 mapped text blocks and lines required per scored page. Within-block line order is derived top-to-bottom, not independently annotated. Complementary block tau deduplicates GT block IDs in first-occurrence order. This is NOT the official OmniDocBench score or an OCR recognition/merge/split metric; GT filtering of the scoring subset, truncation and alignment coverage limit interpretation. No explicit sidebar labels were found. Images and annotations are not committed.")
     provenance = {"dataset_revision":manifest["revision"],"manifest_sha256":hashlib.sha256((args.root/"selected_pages.json").read_bytes()).hexdigest(),
                   "checkpoint":str(args.checkpoint),"checkpoint_sha256":hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),
-                  "annotation_sha256":hashlib.sha256((args.root/"OmniDocBench.json").read_bytes()).hexdigest(),
+                  "annotation_sha256":hashlib.sha256(annotation_path.read_bytes()).hexdigest(),
                   "native_prior":4.0,"thresholds":thresholds,"max_lines":evaluation_limit,"training_max_lines":training_limit,
                   "page_policies":{str(seed):{"path":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"kind":saved["kind"]} for seed,(_,saved,path) in policies.items()}}
     provenance["sequential_policies"] = {str(seed):{"path":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest()} for seed,(_,path) in sequential_policies.items()}
